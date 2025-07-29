@@ -209,7 +209,7 @@ async def calculate_leave(request: LeaveCalculationRequest):
     except ValueError as e:
         logger.warning(f"Validation error: {str(e)}")
         return JSONResponse(
-            status_code=400, content={"success": False, "error": str(e)}
+            status_code=400, content={"success": False, "error": "Invalid input data"}
         )
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
