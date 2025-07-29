@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Annual Leave Calculator</title>
+    
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container my-5">
+        <!-- Header -->
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="text-center mb-5">
+                    <i class="bi bi-calendar-check text-primary" style="font-size: 3rem;"></i>
+                    <h1 class="display-4 fw-bold text-primary mt-3">Annual Leave Calculator</h1>
+                    <p class="lead text-muted">Calculate your leave balance based on employment period and entitlements</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Calculator Form -->
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card shadow-lg border-0">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0"><i class="bi bi-calculator me-2"></i>Leave Balance Calculator</h4>
+                    </div>
+                    <div class="card-body p-4">
+                        <!-- Alert for errors -->
+                        <div id="alert-container"></div>
+
+                        <!-- Calculator Form -->
+                        <form id="leave-calculator-form">
+                            <div class="row g-3">
+                                <!-- Start Date -->
+                                <div class="col-md-6">
+                                    <label for="start_date" class="form-label fw-semibold">
+                                        <i class="bi bi-calendar-event text-primary me-1"></i>Start Date
+                                    </label>
+                                    <input type="date" class="form-control form-control-lg" id="start_date" name="start_date" required>
+                                    <div class="form-text">Employment start date or leave period start</div>
+                                </div>
+
+                                <!-- End Date -->
+                                <div class="col-md-6">
+                                    <label for="end_date" class="form-label fw-semibold">
+                                        <i class="bi bi-calendar-check text-primary me-1"></i>End Date
+                                    </label>
+                                    <input type="date" class="form-control form-control-lg" id="end_date" name="end_date" required>
+                                    <div class="form-text">Current date or leave period end</div>
+                                </div>
+
+                                <!-- Leave Periods Taken -->
+                                <div class="col-12">
+                                    <label class="form-label fw-semibold">
+                                        <i class="bi bi-calendar-x text-primary me-1"></i>Leave Periods Taken
+                                    </label>
+                                    
+                                    <!-- Leave Periods Container -->
+                                    <div id="leave-periods-container" class="border rounded p-3 bg-light">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <span class="fw-semibold">Leave Periods</span>
+                                            <div>
+                                                <span class="badge bg-primary me-2" id="total-leave-days">Total: 0 days</span>
+                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-leave-period">
+                                                    <i class="bi bi-plus-circle me-1"></i>Add Period
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Default message when no periods -->
+                                        <div id="no-periods-message" class="text-muted text-center py-3">
+                                            <i class="bi bi-info-circle me-2"></i>No leave periods added yet. Click "Add Period" to get started.
+                                        </div>
+                                        
+                                        <!-- Leave periods will be dynamically added here -->
+                                        <div id="leave-periods-list"></div>
+                                    </div>
+                                    <div class="form-text">Add individual leave periods taken (single days or date ranges)</div>
+                                </div>
+
+                                <!-- Annual Entitlement -->
+                                <div class="col-md-12">
+                                    <label for="annual_entitlement" class="form-label fw-semibold">
+                                        <i class="bi bi-calendar-plus text-primary me-1"></i>Annual Entitlement (Days)
+                                    </label>
+                                    <input type="number" class="form-control form-control-lg" id="annual_entitlement" name="annual_entitlement" 
+                                           min="1" step="0.5" placeholder="20" required>
+                                    <div class="form-text">Total annual leave entitlement in days</div>
+                                </div>
+                            </div>
+
+                            <!-- Export/Import Section -->
+                            <div class="col-12">
+                                <hr class="my-4">
+                                <div class="row g-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-download text-primary me-1"></i>Export Data
+                                        </label>
+                                        <button type="button" class="btn btn-outline-secondary btn-sm d-block w-100" id="export-data-btn">
+                                            <i class="bi bi-file-earmark-arrow-down me-2"></i>Export Form Data
+                                        </button>
+                                        <div class="form-text">Save current form data as a JSON file</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-upload text-primary me-1"></i>Import Data
+                                        </label>
+                                        <input type="file" class="form-control form-control-sm" id="import-file-input" accept=".json" style="display: none;">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm d-block w-100" id="import-data-btn">
+                                            <i class="bi bi-file-earmark-arrow-up me-2"></i>Import Form Data
+                                        </button>
+                                        <div class="form-text">Load form data from a JSON file</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Calculate Button -->
+                            <div class="text-center mt-4">
+                                <button type="submit" class="btn btn-primary btn-lg px-5" id="calculate-btn">
+                                    <span id="btn-text">
+                                        <i class="bi bi-calculator me-2"></i>Calculate Leave Balance
+                                    </span>
+                                    <span id="btn-spinner" class="d-none">
+                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                        Calculating...
+                                    </span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="row justify-content-center mt-4" style="display: none;" data-results-section>
+            <div class="col-lg-8">
+                <div class="card shadow-lg border-0">
+                    <div class="card-header bg-success text-white">
+                        <h4 class="mb-0">
+                            <i class="bi bi-check-circle me-2"></i>Calculation Results
+                        </h4>
+                    </div>
+                    <div class="card-body p-4">
+                        <!-- Main Result -->
+                        <div class="text-center mb-4">
+                            <div class="display-6 fw-bold text-primary" id="main-result"></div>
+                            <p class="text-muted">Current Leave Balance</p>
+                        </div>
+
+                        <!-- Calculation Details -->
+                        <div class="row g-3" id="calculation-details">
+                            <div class="col-sm-6">
+                                <div class="bg-light p-3 rounded">
+                                    <div class="small text-muted">Period Duration</div>
+                                    <div class="fw-semibold" id="period-duration"></div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="bg-light p-3 rounded">
+                                    <div class="small text-muted">Entitled Leave for Period</div>
+                                    <div class="fw-semibold" id="entitled-leave"></div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="bg-light p-3 rounded">
+                                    <div class="small text-muted">Leave Taken</div>
+                                    <div class="fw-semibold" id="leave-taken-display"></div>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="bg-light p-3 rounded">
+                                    <div class="small text-muted">Annual Entitlement</div>
+                                    <div class="fw-semibold" id="annual-entitlement-display"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Calculate Again Button -->
+                        <div class="text-center mt-4">
+                            <button type="button" class="btn btn-outline-primary" onclick="resetCalculator()">
+                                <i class="bi bi-arrow-clockwise me-2"></i>Calculate Again
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Information Section -->
+        <div class="row justify-content-center mt-5">
+            <div class="col-lg-8">
+                <div class="card border-0 bg-light">
+                    <div class="card-body">
+                        <h6 class="text-primary mb-3"><i class="bi bi-info-circle me-2"></i>How it works</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i>
+                                Enter your employment start and end dates (or leave period)
+                            </li>
+                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i>
+                                Specify your annual leave entitlement and days already taken
+                            </li>
+                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i>
+                                Leave entitlement is pro-rated based on the period duration
+                            </li>
+                            <li class="mb-0"><i class="bi bi-check text-success me-2"></i>
+                                Results show in days (≥1 day) or hours (<1 day, using 7.6 hours/day)
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

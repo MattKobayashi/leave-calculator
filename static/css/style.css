@@ -1,0 +1,383 @@
+/* Annual Leave Calculator Custom Styles */
+
+:root {
+    --primary-color: #0d6efd;
+    --primary-rgb: 13, 110, 253;
+    --success-color: #198754;
+    --warning-color: #ffc107;
+    --danger-color: #dc3545;
+    --light-bg: #f8f9fa;
+    --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    --shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.175);
+    --border-radius: 0.5rem;
+}
+
+/* Global Styles */
+body {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100vh;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Card Enhancements */
+.card {
+    border-radius: var(--border-radius);
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.card-header {
+    border-radius: var(--border-radius) var(--border-radius) 0 0 !important;
+    border-bottom: none;
+    padding: 1.25rem 1.5rem;
+}
+
+.card-body {
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
+}
+
+/* Form Styling */
+.form-control {
+    border-radius: var(--border-radius);
+    border: 2px solid #e9ecef;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    padding: 0.75rem 1rem;
+}
+
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(var(--primary-rgb), 0.25);
+}
+
+.form-control-lg {
+    padding: 1rem 1.25rem;
+    font-size: 1.1rem;
+}
+
+.form-label {
+    color: #495057;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+}
+
+.form-text {
+    color: #6c757d;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+/* Button Enhancements */
+.btn {
+    border-radius: var(--border-radius);
+    font-weight: 600;
+    transition: all 0.15s ease-in-out;
+    border: none;
+    padding: 0.75rem 2rem;
+}
+
+.btn-lg {
+    padding: 1rem 2.5rem;
+    font-size: 1.125rem;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary-color) 0%, #0b5ed7 100%);
+    box-shadow: 0 4px 15px rgba(var(--primary-rgb), 0.3);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, #0b5ed7 0%, #0a58ca 100%);
+    box-shadow: 0 6px 20px rgba(var(--primary-rgb), 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-outline-primary {
+    border: 2px solid var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    transform: translateY(-1px);
+}
+
+/* Alert Enhancements */
+.alert {
+    border-radius: var(--border-radius);
+    border: none;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 1.5rem;
+}
+
+.alert-success {
+    background: linear-gradient(135deg, #d1edff 0%, #a7f3d0 100%);
+    color: #065f46;
+}
+
+.alert-danger {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    color: #991b1b;
+}
+
+.alert-warning {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #92400e;
+}
+
+/* Results Section Styling */
+[data-results-section] {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+[data-results-section] .row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+[data-results-section] .col-lg-8 {
+    width: 66.666667% !important;
+    max-width: 66.666667% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+}
+
+[data-results-section] .card-header {
+    background: linear-gradient(135deg, var(--success-color) 0%, #146c43 100%) !important;
+    border-bottom: none;
+}
+
+#main-result {
+    color: var(--primary-color);
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.bg-light {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+    border-radius: var(--border-radius);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Icon Styling */
+.bi {
+    vertical-align: -0.125em;
+}
+
+/* Header Styling */
+.display-4 {
+    background: linear-gradient(135deg, var(--primary-color) 0%, #6f42c1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 800;
+}
+
+/* Information Section */
+.list-unstyled li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.list-unstyled li:last-child {
+    border-bottom: none;
+}
+
+/* Loading Animation */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .container {
+        padding: 0 1rem;
+    }
+    
+    .display-4 {
+        font-size: 2.5rem;
+    }
+    
+    .card-body {
+        padding: 1.5rem !important;
+    }
+    
+    .btn-lg {
+        padding: 0.875rem 2rem;
+        font-size: 1rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .display-4 {
+        font-size: 2rem;
+    }
+    
+    .lead {
+        font-size: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem !important;
+    }
+    
+    .col-sm-6 {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Custom Animations */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+.alert {
+    animation: fadeInUp 0.4s ease-out;
+}
+
+/* Focus States */
+.form-control:focus,
+.btn:focus {
+    outline: none;
+}
+
+/* Custom Border Styles */
+.border-start {
+    border-left-width: 4px !important;
+}
+
+/* Leave Period Styles */
+.leave-period-item {
+    transition: all 0.2s ease-in-out;
+    border: 2px solid #e9ecef !important;
+}
+
+.leave-period-item:hover {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.15);
+}
+
+#leave-periods-container {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: 2px solid #e9ecef;
+    border-radius: var(--border-radius);
+}
+
+.period-days-display {
+    background-color: #f8f9fa !important;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.remove-period:hover {
+    transform: scale(1.1);
+}
+
+.form-select-sm,
+.form-control-sm {
+    border-radius: calc(var(--border-radius) * 0.75);
+}
+
+#total-leave-days {
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+}
+
+#no-periods-message {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border: 2px dashed #dee2e6;
+    border-radius: var(--border-radius);
+    padding: 2rem;
+    margin: 0;
+}
+
+/* Leave period animations */
+.leave-period-item {
+    animation: slideInUp 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Small form controls styling */
+.form-control-sm:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.15rem rgba(var(--primary-rgb), 0.25);
+}
+
+.form-select-sm:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.15rem rgba(var(--primary-rgb), 0.25);
+}
+
+/* Badge enhancements */
+.badge {
+    font-weight: 600;
+    border-radius: calc(var(--border-radius) * 0.5);
+}
+
+/* Responsive adjustments for leave periods */
+@media (max-width: 768px) {
+    .leave-period-item .row > div {
+        margin-bottom: 0.75rem;
+    }
+    
+    .leave-period-item .col-md-1 {
+        text-align: center;
+    }
+    
+    .remove-period {
+        width: 100%;
+    }
+}
+
+/* Print Styles */
+@media print {
+    body {
+        background: white !important;
+    }
+    
+    .btn,
+    #alert-container {
+        display: none !important;
+    }
+    
+    .card {
+        box-shadow: none !important;
+        border: 1px solid #dee2e6 !important;
+    }
+    
+    .leave-period-item {
+        border: 1px solid #dee2e6 !important;
+        box-shadow: none !important;
+    }
+}
