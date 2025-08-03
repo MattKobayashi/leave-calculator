@@ -22,12 +22,24 @@ body {
 /* Card Enhancements */
 .card {
     border-radius: var(--border-radius);
-    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    transform: translateZ(0); /* Enable hardware acceleration */
 }
 
-.card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
+/* Reduce hover effects on touch devices to improve performance */
+@media (hover: hover) and (pointer: fine) {
+    .card:hover {
+        transform: translateY(-2px) translateZ(0);
+        box-shadow: var(--shadow-lg);
+    }
+}
+
+/* Disable hover effects on touch devices */
+@media (hover: none) {
+    .card:hover {
+        transform: none;
+        box-shadow: none;
+    }
 }
 
 .card-header {
@@ -236,7 +248,7 @@ body {
     }
 }
 
-/* Custom Animations */
+/* Custom Animations - Optimized for performance */
 @keyframes fadeInUp {
     from {
         opacity: 0;
@@ -248,12 +260,27 @@ body {
     }
 }
 
+/* Reduce animation frequency and enable hardware acceleration */
 .card {
-    animation: fadeInUp 0.6s ease-out;
+    animation: fadeInUp 0.3s ease-out;
+    transform: translateZ(0); /* Enable hardware acceleration */
+    will-change: transform, opacity; /* Hint to browser for optimization */
 }
 
 .alert {
-    animation: fadeInUp 0.4s ease-out;
+    animation: fadeInUp 0.2s ease-out;
+    transform: translateZ(0);
+    will-change: transform, opacity;
+}
+
+/* Disable animations on low-performance devices */
+@media (prefers-reduced-motion: reduce) {
+    .card,
+    .alert,
+    .leave-period-item {
+        animation: none;
+        transition: none;
+    }
 }
 
 /* Focus States */
@@ -312,20 +339,31 @@ body {
     margin: 0;
 }
 
-/* Leave period animations */
+/* Leave period animations - Performance optimized */
 .leave-period-item {
-    animation: slideInUp 0.3s ease-out;
+    animation: slideInUp 0.2s ease-out;
+    transform: translateZ(0); /* Hardware acceleration */
+    will-change: transform, opacity;
 }
 
 @keyframes slideInUp {
     from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translate3d(0, 20px, 0); /* Use 3D transforms for GPU acceleration */
     }
     to {
         opacity: 1;
-        transform: translateY(0);
+        transform: translate3d(0, 0, 0);
     }
+}
+
+/* Remove will-change after animation completes to save memory */
+.leave-period-item {
+    animation: slideInUp 0.2s ease-out forwards;
+}
+
+.leave-period-item.animation-complete {
+    will-change: auto;
 }
 
 /* Small form controls styling */

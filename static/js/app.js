@@ -4,6 +4,13 @@
 let leavePeriods = [];
 let periodIdCounter = 0;
 
+// Performance optimization: Cache for parsed dates and calculations
+const dateCache = new Map();
+const calculationCache = new Map();
+
+// Memory leak prevention: Track event listeners for cleanup
+const eventListeners = new Map();
+
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('leave-calculator-form');
     const calculateBtn = document.getElementById('calculate-btn');
@@ -85,7 +92,7 @@ function initializeLeavePeriods() {
     updateLeavePeriodDisplay();
 }
 
-// Add a new leave period
+// Add a new leave period with performance optimization
 function addLeavePeriod() {
     const periodId = ++periodIdCounter;
     const period = {
@@ -96,8 +103,12 @@ function addLeavePeriod() {
     };
     
     leavePeriods.push(period);
-    renderLeavePeriod(period);
-    updateLeavePeriodDisplay();
+    
+    // Batch DOM operations to reduce reflows
+    requestAnimationFrame(() => {
+        renderLeavePeriod(period);
+        updateLeavePeriodDisplay();
+    });
 }
 
 // Render a leave period in the UI
@@ -147,35 +158,63 @@ function renderLeavePeriod(period) {
     addPeriodEventListeners(period.id);
 }
 
-// Add event listeners for a specific period
+// Add event listeners for a specific period with cleanup tracking
 function addPeriodEventListeners(periodId) {
     const periodElement = document.querySelector(`[data-period-id="${periodId}"]`);
     
+    // Store listeners for cleanup
+    const listeners = [];
+    
     // Period type change
     const typeSelect = periodElement.querySelector('.period-type');
-    typeSelect.addEventListener('change', function() {
+    const typeChangeHandler = function() {
         togglePeriodType(periodId, this.value);
-    });
+    };
+    typeSelect.addEventListener('change', typeChangeHandler);
+    listeners.push({ element: typeSelect, event: 'change', handler: typeChangeHandler });
     
-    // Date changes
+    // Date changes with debouncing for performance
     const startDateInput = periodElement.querySelector('.period-start-date');
     const endDateInput = periodElement.querySelector('.period-end-date');
     
-    startDateInput.addEventListener('change', function() {
+    const startDateHandler = debounce(function() {
         updatePeriodData(periodId);
         calculatePeriodDays(periodId);
-    });
+    }, 300);
     
-    endDateInput.addEventListener('change', function() {
+    const endDateHandler = debounce(function() {
         updatePeriodData(periodId);
         calculatePeriodDays(periodId);
-    });
+    }, 300);
+    
+    startDateInput.addEventListener('change', startDateHandler);
+    endDateInput.addEventListener('change', endDateHandler);
+    listeners.push({ element: startDateInput, event: 'change', handler: startDateHandler });
+    listeners.push({ element: endDateInput, event: 'change', handler: endDateHandler });
     
     // Remove button
     const removeBtn = periodElement.querySelector('.remove-period');
-    removeBtn.addEventListener('click', function() {
+    const removeHandler = function() {
         removeLeavePeriod(periodId);
-    });
+    };
+    removeBtn.addEventListener('click', removeHandler);
+    listeners.push({ element: removeBtn, event: 'click', handler: removeHandler });
+    
+    // Store listeners for cleanup
+    eventListeners.set(periodId, listeners);
+}
+
+// Debounce utility to prevent excessive function calls
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
 }
 
 // Toggle between single day and date range
@@ -219,32 +258,78 @@ function updatePeriodData(periodId) {
     }
 }
 
-// Calculate and display days for a specific period
+// Calculate and display days for a specific period with caching
 function calculatePeriodDays(periodId) {
     const period = leavePeriods.find(p => p.id === periodId);
     if (!period || !period.startDate) return;
     
-    const startDate = new Date(period.startDate);
-    const endDate = new Date(period.endDate || period.startDate);
+    // Create cache key
+    const cacheKey = `${period.startDate}-${period.endDate || period.startDate}`;
+    
+    // Check cache first
+    if (calculationCache.has(cacheKey)) {
+        const cachedDays = calculationCache.get(cacheKey);
+        const periodElement = document.querySelector(`[data-period-id="${periodId}"]`);
+        const daysDisplay = periodElement.querySelector('.period-days-display');
+        daysDisplay.value = cachedDays;
+        return;
+    }
+    
+    // Parse dates with caching
+    const startDate = getCachedDate(period.startDate);
+    const endDate = getCachedDate(period.endDate || period.startDate);
     
     if (startDate && endDate && startDate <= endDate) {
         const days = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+        
+        // Cache the result
+        calculationCache.set(cacheKey, days);
         
         const periodElement = document.querySelector(`[data-period-id="${periodId}"]`);
         const daysDisplay = periodElement.querySelector('.period-days-display');
         daysDisplay.value = days;
         
-        updateLeavePeriodDisplay();
+        // Throttle display updates
+        requestAnimationFrame(() => updateLeavePeriodDisplay());
     }
 }
 
-// Remove a leave period
+// Cache date parsing to avoid repeated operations
+function getCachedDate(dateString) {
+    if (!dateString) return null;
+    
+    if (dateCache.has(dateString)) {
+        return dateCache.get(dateString);
+    }
+    
+    const date = new Date(dateString);
+    dateCache.set(dateString, date);
+    return date;
+}
+
+// Remove a leave period with proper cleanup
 function removeLeavePeriod(periodId) {
+    // Clean up event listeners to prevent memory leaks
+    if (eventListeners.has(periodId)) {
+        const listeners = eventListeners.get(periodId);
+        listeners.forEach(({ element, event, handler }) => {
+            element.removeEventListener(event, handler);
+        });
+        eventListeners.delete(periodId);
+    }
+    
+    // Remove from array
     leavePeriods = leavePeriods.filter(p => p.id !== periodId);
+    
+    // Remove DOM element
     const periodElement = document.querySelector(`[data-period-id="${periodId}"]`);
     if (periodElement) {
         periodElement.remove();
     }
+    
+    // Clear related cache entries
+    calculationCache.clear(); // Clear calculation cache when periods change
+    
     updateLeavePeriodDisplay();
 }
 
@@ -267,20 +352,25 @@ function updateLeavePeriodDisplay() {
     totalBadge.textContent = `Total: ${totalDays} days`;
 }
 
-// Calculate total leave days from all periods
+// Calculate total leave days from all periods with optimization
 function calculateTotalLeaveDays() {
-    return leavePeriods.reduce((total, period) => {
+    let total = 0;
+    
+    // Use for loop instead of reduce for better performance
+    for (const period of leavePeriods) {
         if (period.startDate) {
-            const startDate = new Date(period.startDate);
-            const endDate = new Date(period.endDate || period.startDate);
+            // Use cached date parsing
+            const startDate = getCachedDate(period.startDate);
+            const endDate = getCachedDate(period.endDate || period.startDate);
             
             if (startDate && endDate && startDate <= endDate) {
                 const days = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-                return total + days;
+                total += days;
             }
         }
-        return total;
-    }, 0);
+    }
+    
+    return total;
 }
 
 // Prepare form data for submission
@@ -478,8 +568,10 @@ function initializeExportImport() {
     fileInput.addEventListener('change', handleFileImport);
 }
 
-// Export form data as JSON
+// Export form data as JSON with memory leak prevention
 function exportFormData() {
+    let downloadUrl = null;
+    
     try {
         const formData = prepareFormData();
         
@@ -488,7 +580,7 @@ function exportFormData() {
             metadata: {
                 exportDate: new Date().toISOString(),
                 version: '1.0.0',
-                application: 'Annual Leave Calculator'
+                application: 'Annual Leave Calculator',
             },
             formData: formData
         };
@@ -498,7 +590,7 @@ function exportFormData() {
         const dataBlob = new Blob([dataStr], { type: 'application/json' });
         
         // Create download link
-        const downloadUrl = URL.createObjectURL(dataBlob);
+        downloadUrl = URL.createObjectURL(dataBlob);
         const link = document.createElement('a');
         link.href = downloadUrl;
         
@@ -511,13 +603,15 @@ function exportFormData() {
         link.click();
         document.body.removeChild(link);
         
-        // Clean up
-        URL.revokeObjectURL(downloadUrl);
-        
         showAlert('success', 'Form data exported successfully!');
     } catch (error) {
         console.error('Export error:', error);
         showAlert('danger', 'Failed to export form data. Please try again.');
+    } finally {
+        // Always clean up URL to prevent memory leaks
+        if (downloadUrl) {
+            URL.revokeObjectURL(downloadUrl);
+        }
     }
 }
 
@@ -701,16 +795,33 @@ function formatDate(dateString) {
     });
 }
 
-// Add input formatting for better UX
-document.addEventListener('DOMContentLoaded', function() {
-    // Format number inputs
-    const numberInputs = document.querySelectorAll('input[type="number"]');
-    numberInputs.forEach(input => {
-        input.addEventListener('input', function() {
-            // Ensure positive values
-            if (parseFloat(this.value) < 0) {
-                this.value = '0';
-            }
+// Add performance monitoring and cleanup on page unload
+window.addEventListener('beforeunload', function() {
+    // Clean up all event listeners
+    eventListeners.forEach((listeners, periodId) => {
+        listeners.forEach(({ element, event, handler }) => {
+            element.removeEventListener(event, handler);
         });
+    });
+    
+    // Clear all caches
+    dateCache.clear();
+    calculationCache.clear();
+    
+});
+
+// Add input formatting for better UX with performance optimization
+document.addEventListener('DOMContentLoaded', function() {
+    // Format number inputs with debouncing
+    const numberInputs = document.querySelectorAll('input[type="number"]');
+    const inputHandler = debounce(function() {
+        // Ensure positive values
+        if (parseFloat(this.value) < 0) {
+            this.value = '0';
+        }
+    }, 200);
+    
+    numberInputs.forEach(input => {
+        input.addEventListener('input', inputHandler);
     });
 });
