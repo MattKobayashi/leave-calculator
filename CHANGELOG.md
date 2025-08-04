@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/MattKobayashi/leave-calculator/compare/v0.1.1...v0.1.2) (2025-08-04)
+
+
+### Bug Fixes
+
+* performance improvements ([#7](https://github.com/MattKobayashi/leave-calculator/issues/7)) ([51f981a](https://github.com/MattKobayashi/leave-calculator/commit/51f981a3bf29c29dd4a824b8437ce9648f0eff31))
+
 ## [0.1.1](https://github.com/MattKobayashi/leave-calculator/compare/v0.1.0...v0.1.1) (2025-08-01)
 
 
