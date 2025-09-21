@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13, <3.14"
 dependencies = [
-    "fastapi[standard]==0.116.2",
+    "fastapi[standard]==0.117.1",
     "python-dateutil==2.9.0.post0",
     "python-multipart==0.0.20",
 ]
