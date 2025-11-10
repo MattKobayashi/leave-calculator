@@ -7,12 +7,6 @@ ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
 # for an example.
 ENV UV_PYTHON_DOWNLOADS=0
 
-# Install build dependencies
-RUN apt-get update \
-    && apt-get install --no-install-recommends --yes \
-    cargo \
-    make
-
 # Copy the uv binaries from the distroless image
 COPY --from=ghcr.io/astral-sh/uv:0.9.8@sha256:08f409e1d53e77dfb5b65c788491f8ca70fe1d2d459f41c89afa2fcbef998abe /uv /uvx /bin/
 
@@ -47,5 +41,5 @@ ENV PATH="/app/.venv/bin:$PATH"
 CMD ["python3", "/app/main.py"]
 
 # Define the health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
   CMD curl --fail http://localhost:8000/health || exit 1
