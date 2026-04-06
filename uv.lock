@@ -278,7 +278,7 @@ dependencies = [
 requires-dist = [
     { name = "fastapi", extras = ["standard"], specifier = "==0.135.3" },
     { name = "python-dateutil", specifier = "==2.9.0.post0" },
-    { name = "python-multipart", specifier = "==0.0.23" },
+    { name = "python-multipart", specifier = "==0.0.24" },
 ]
 
 [[package]]
@@ -450,11 +450,11 @@ wheels = [
 
 [[package]]
 name = "python-multipart"
-version = "0.0.23"
+version = "0.0.24"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/0b/77/3f3eb0f19006817ab5764b9af6a7dde8a2a6583dc1ab8263935a3b4d8f0d/python_multipart-0.0.23.tar.gz", hash = "sha256:c6fe0413b4964a36956c9602d3be5c5a7ecc8ae17a1450750df7e4cd2a70b906", size = 37552, upload-time = "2026-04-05T20:17:35.116Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/8a/45/e23b5dc14ddb9918ae4a625379506b17b6f8fc56ca1d82db62462f59aea6/python_multipart-0.0.24.tar.gz", hash = "sha256:9574c97e1c026e00bc30340ef7c7d76739512ab4dfd428fec8c330fa6a5cc3c8", size = 37695, upload-time = "2026-04-05T20:49:13.829Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6c/b3/530813feb11e25c788da525b4af12c2fa44ffe979e1805eca20f98fdbd34/python_multipart-0.0.23-py3-none-any.whl", hash = "sha256:e94160daa012dbf7f6d84279e93f7b716c11f372a4d995edbdf2843ee10fc9e9", size = 24383, upload-time = "2026-04-05T20:17:33.674Z" },
+    { url = "https://files.pythonhosted.org/packages/a3/73/89930efabd4da63cea44a3f438aeb753d600123570e6d6264e763617a9ce/python_multipart-0.0.24-py3-none-any.whl", hash = "sha256:9b110a98db707df01a53c194f0af075e736a770dc5058089650d70b4a182f950", size = 24420, upload-time = "2026-04-05T20:49:12.555Z" },
 ]
 
 [[package]]
