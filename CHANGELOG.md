@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/MattKobayashi/leave-calculator/compare/v1.0.0...v1.0.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **deps:** update dependency python-dateutil to v4 ([#511](https://github.com/MattKobayashi/leave-calculator/issues/511)) ([aa25f84](https://github.com/MattKobayashi/leave-calculator/commit/aa25f8497ca096c38a8094550925baafca536d04))
+* **deps:** update dependency python-multipart to v0.0.33 ([#509](https://github.com/MattKobayashi/leave-calculator/issues/509)) ([1d79b59](https://github.com/MattKobayashi/leave-calculator/commit/1d79b598889a36509f84389547a50b5dd73802c1))
+
 ## 1.0.0 (2026-10-28)
 
 
