@@ -1,827 +1,731 @@
-// Annual Leave Calculator JavaScript
+import {
+    MAX_ENTRIES, dateNumber, dateString, daysLabel, escapeHtml, filterEntries,
+    formatDate, formatNumber, formatRange, initialData, isHolidaySelected,
+    localToday, normaliseData, paginate, previewPeriod,
+} from './utils.js';
 
-// Global variables for leave period management
-let leavePeriods = [];
-let periodIdCounter = 0;
+const $ = id => document.getElementById(id);
+const icon = name => `<svg class="icon" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+const STORAGE_KEY = 'leave-calculator:plan:v2';
+// IDs are only UI keys, not secrets. A counter also works on HTTP LAN installs,
+// where secure-context-only APIs such as crypto.randomUUID are unavailable.
+let nextEntryId = 0;
+const newEntryId = () => `entry-${++nextEntryId}`;
+const state = {
+    data: initialData(),
+    result: null,
+    breakdowns: new Map(),
+    selected: new Set(),
+    query: '', year: 'all', sort: 'newest', page: 1, pageSize: 10,
+    matches: [], visible: [], editingId: null,
+    revision: 0, calculationController: null, calculationTimer: null,
+    holidayKey: null, holidayData: null, holidayError: null,
+    holidayController: null, holidayCache: new Map(), holidayLoading: false,
+    toastTimer: null, undo: null, storageBlocked: false,
+};
 
-// Performance optimization: Cache for parsed dates and calculations
-const dateCache = new Map();
-const calculationCache = new Map();
+function payload() {
+    return {
+        ...state.data,
+        leave_periods: state.data.leave_periods.map(({ id: _id, ...period }) => period),
+    };
+}
 
-// Memory leak prevention: Track event listeners for cleanup
-const eventListeners = new Map();
+function applyData(data) {
+    state.data = { ...data, leave_periods: data.leave_periods.map(period => ({ ...period, id: newEntryId() })) };
+    state.selected.clear();
+    state.query = '';
+    state.year = 'all';
+    state.page = 1;
+    $('entry-search').value = '';
+    $('start_date').value = data.start_date;
+    $('end_date').value = data.end_date;
+    $('annual_entitlement').value = data.annual_entitlement;
+    $('holiday-region').value = data.holiday_region || '';
+    $('exclude-public-holidays').checked = data.exclude_public_holidays;
+    $('dialog-enable-holidays').checked = data.exclude_public_holidays;
+    document.querySelectorAll('[name="excluded_weekday"]').forEach(input => {
+        input.checked = data.excluded_weekdays.includes(Number(input.value));
+    });
+    readSettings();
+    rebuildYearOptions();
+    syncRuleSummary();
+    renderCustomDates();
+}
 
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('leave-calculator-form');
-    const calculateBtn = document.getElementById('calculate-btn');
-    const btnText = document.getElementById('btn-text');
-    const btnSpinner = document.getElementById('btn-spinner');
-    const resultsSection = document.querySelector('[data-results-section]');
-    const alertContainer = document.getElementById('alert-container');
+function readSettings() {
+    state.data.start_date = $('start_date').value;
+    state.data.end_date = $('end_date').value;
+    state.data.annual_entitlement = Number($('annual_entitlement').value);
+    state.data.excluded_weekdays = [...document.querySelectorAll('[name="excluded_weekday"]:checked')].map(input => Number(input.value));
+    state.data.exclude_public_holidays = $('exclude-public-holidays').checked;
+    state.data.holiday_region = $('holiday-region').value || null;
+    const reversed = state.data.start_date && state.data.end_date && state.data.start_date > state.data.end_date;
+    $('end_date').setCustomValidity(reversed ? 'Calculation ends must be on or after calculation starts.' : '');
+    $('annual_entitlement').setCustomValidity(
+        $('annual_entitlement').value && state.data.annual_entitlement <= 0 ? 'Annual entitlement must be greater than 0.' : '',
+    );
+}
 
-    // Set default end date to today
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('end_date').value = today;
+function showAlert(message) {
+    $('alert-message').textContent = message;
+    $('alert-container').hidden = false;
+}
 
-    // Set default start date to one year ago
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    document.getElementById('start_date').value = oneYearAgo.toISOString().split('T')[0];
+function clearAlert() {
+    $('alert-container').hidden = true;
+    $('alert-message').textContent = '';
+}
 
-    // Set default annual entitlement
-    document.getElementById('annual_entitlement').value = '20';
+function showToast(message, undo = null) {
+    clearTimeout(state.toastTimer);
+    state.undo = undo;
+    $('toast-message').textContent = message;
+    $('undo-action').hidden = !undo;
+    $('toast').hidden = false;
+    state.toastTimer = setTimeout(hideToast, undo ? 15000 : 6000);
+}
 
-    // Initialize leave period management
-    initializeLeavePeriods();
+function hideToast() {
+    clearTimeout(state.toastTimer);
+    $('toast').hidden = true;
+    state.undo = null;
+}
 
-    // Initialize export/import functionality
-    initializeExportImport();
+function confirmAction(title, description, action, destructive = true) {
+    const dialog = $('confirm-dialog');
+    $('confirm-title').textContent = title;
+    $('confirm-description').textContent = description;
+    $('confirm-action').textContent = action;
+    $('confirm-action').className = `button ${destructive ? 'button-danger' : 'button-primary'}`;
+    dialog.returnValue = 'cancel';
+    return new Promise(resolve => {
+        dialog.addEventListener('close', () => resolve(dialog.returnValue === 'confirm'), { once: true });
+        dialog.showModal();
+    });
+}
 
-    // Form submission handler
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        
-        // Clear previous alerts
-        clearAlerts();
-        
-        // Validate form
-        if (!validateForm()) {
+function saveDraft() {
+    if (state.storageBlocked) return;
+    try {
+        const data = normaliseData(payload());
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ metadata: { version: '2.0.0' }, formData: data }));
+        $('save-status').innerHTML = '<span class="status-dot"></span> Saved in this browser';
+    } catch (error) {
+        $('save-status').textContent = error instanceof DOMException
+            ? 'Not saved — export to keep a copy' : 'Unsaved changes — check your settings';
+    }
+}
+
+async function requestJSON(url, options, controller) {
+    let timedOut = false;
+    const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, 15000);
+    try {
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        const body = await response.json();
+        if (!response.ok || !body.success) throw new Error(body.error || 'The server could not complete this request.');
+        return body.data;
+    } catch (error) {
+        if (timedOut) throw new Error('The server took too long to respond. Please try again.');
+        if (error.name === 'AbortError') throw error;
+        if (error instanceof TypeError || error instanceof SyntaxError) throw new Error('Could not reach the calculator. Your plan is still here; check your connection and try again.');
+        throw error;
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+function invalidateResults(status, busy) {
+    state.result = null;
+    state.breakdowns.clear();
+    ['balance-value', 'accrued-value', 'taken-value', 'excluded-value'].forEach(id => { $(id).textContent = '—'; });
+    $('balance-label').textContent = 'Available balance';
+    $('balance-unit').textContent = 'days';
+    $('balance-value').style.setProperty('--balance-character-width', '2');
+    $('balance-secondary').textContent = busy ? 'A little maths in progress' : 'Check your calculation settings';
+    $('calculation-status').textContent = status;
+    $('balance-overview').setAttribute('aria-busy', String(busy));
+    $('balance-value').closest('.balance-card').classList.remove('is-negative');
+    $('calculate-btn').disabled = busy;
+    $('calculation-note').hidden = true;
+    renderEntries();
+}
+
+function scheduleCalculation({ immediate = false, report = false } = {}) {
+    clearTimeout(state.calculationTimer);
+    state.calculationController?.abort();
+    const revision = ++state.revision;
+    syncRuleSummary();
+    saveDraft();
+    loadHolidayCalendar();
+    let data;
+    try {
+        data = normaliseData(payload());
+    } catch (error) {
+        invalidateResults('Check settings', false);
+        if (report) showAlert(error.message);
+        return;
+    }
+    clearAlert();
+    invalidateResults('Updating…', true);
+    const ids = state.data.leave_periods.map(period => period.id);
+    state.calculationTimer = setTimeout(async () => {
+        const controller = new AbortController();
+        state.calculationController = controller;
+        try {
+            const result = await requestJSON('/calculate', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+            }, controller);
+            if (revision !== state.revision) return;
+            state.result = result;
+            state.breakdowns = new Map(result.leave_period_breakdowns.map((period, index) => [ids[index], period]));
+            renderResults();
+            renderEntries();
+        } catch (error) {
+            if (revision !== state.revision || error.name === 'AbortError') return;
+            invalidateResults('Try again', false);
+            showAlert(error.message);
+        } finally {
+            if (revision === state.revision) {
+                $('calculate-btn').disabled = false;
+                $('balance-overview').setAttribute('aria-busy', 'false');
+            }
+        }
+    }, immediate ? 0 : 220);
+}
+
+function renderResults() {
+    const data = state.result;
+    const formattedBalance = formatNumber(data.result.value, 1);
+    $('balance-value').textContent = formattedBalance;
+    $('balance-value').style.setProperty('--balance-character-width', String(Math.max(1, formattedBalance.length * 0.52)));
+    $('balance-unit').textContent = data.result.unit;
+    $('balance-label').textContent = data.balance < 0 ? 'Balance overdrawn' : 'Available balance';
+    $('balance-secondary').textContent = data.result.display_secondary
+        ? `${formatNumber(data.balance_hours, 1)} hours · 7.6h / day` : `Equivalent to ${formatNumber(data.balance)} days`;
+    $('balance-value').closest('.balance-card').classList.toggle('is-negative', data.balance < 0);
+    $('calculation-status').textContent = 'Up to date';
+    $('accrued-value').textContent = formatNumber(data.entitled_leave_for_period);
+    $('accrual-detail').textContent = `Across ${formatNumber(data.days_in_period)} calendar days`;
+    $('taken-value').textContent = formatNumber(data.total_leave_taken);
+    $('taken-detail').textContent = `From ${data.leave_periods_count} ${data.leave_periods_count === 1 ? 'entry' : 'entries'}`;
+    $('excluded-value').textContent = formatNumber(data.total_excluded_days);
+    const notes = [];
+    if (data.overlap_days) notes.push(`${daysLabel(data.overlap_days)} already covered by an earlier saved entry.`);
+    if (data.outside_period_days) notes.push(`${daysLabel(data.outside_period_days)} outside your calculation period.`);
+    $('calculation-note').hidden = !notes.length;
+    $('calculation-note-text').textContent = `${notes.join(' ')} These dates are not deducted again.`;
+}
+
+function syncRuleSummary() {
+    const days = 7 - state.data.excluded_weekdays.length;
+    $('workweek-description').textContent = days === 0
+        ? 'All weekdays excluded — no leave will be deducted.' : `${days} working ${days === 1 ? 'day' : 'days'} per week`;
+    const start = state.data.start_date, end = state.data.end_date;
+    $('heading-period').textContent = dateNumber(start) !== null && dateNumber(end) !== null
+        ? formatRange(start, end) : 'Choose a calculation period';
+    $('dialog-enable-holidays').checked = state.data.exclude_public_holidays;
+    renderHolidaySummary();
+    syncHolidaySelections();
+    updateEntryPreview();
+}
+
+function rebuildYearOptions() {
+    const years = new Set();
+    for (const period of state.data.leave_periods) {
+        for (let year = Number(period.start_date.slice(0, 4)); year <= Number(period.end_date.slice(0, 4)); year++) years.add(String(year).padStart(4, '0'));
+    }
+    const sorted = [...years].sort().reverse();
+    $('year-filter').innerHTML = '<option value="all">All years</option>'
+        + sorted.map(year => `<option value="${year}">${year}</option>`).join('');
+    if (!years.has(state.year)) state.year = 'all';
+    $('year-filter').value = state.year;
+}
+
+function renderEntries() {
+    const periods = state.data.leave_periods;
+    state.matches = filterEntries(periods, state.query, state.year, state.sort);
+    const page = paginate(state.matches, state.page, state.pageSize);
+    state.page = page.page;
+    state.visible = page.items;
+    $('entry-count').textContent = formatNumber(periods.length);
+    $('nav-entry-count').textContent = formatNumber(periods.length);
+    $('nav-entries-link').setAttribute('aria-label', `Leave entries ${formatNumber(periods.length)}`);
+    $('add-leave-period').disabled = periods.length >= MAX_ENTRIES;
+    $('table-container').hidden = page.total === 0;
+    $('empty-state').hidden = page.total !== 0;
+    const emptyPlan = periods.length === 0;
+    $('empty-heading').textContent = emptyPlan ? 'A blank page. A world of possibilities.' : 'No leave entries found.';
+    $('empty-description').textContent = emptyPlan
+        ? 'Add the days you’ve taken or the breaks you’re planning. We’ll take care of the counting.'
+        : 'Try another name, date or year. Your other entries are still here.';
+    $('empty-add').hidden = !emptyPlan;
+    $('clear-filters').hidden = emptyPlan;
+    const focused = document.activeElement;
+    const focusedId = focused?.closest('tr[data-id]')?.dataset.id;
+    const focusedAction = focused?.dataset.action;
+    $('leave-periods-list').innerHTML = page.items.map(period => {
+        const row = state.breakdowns.get(period.id);
+        const label = escapeHtml(period.label || 'Annual leave');
+        const dates = escapeHtml(formatRange(period.start_date, period.end_date));
+        const meta = [];
+        if (row?.excluded_days) meta.push(`${daysLabel(row.excluded_days)} excluded`);
+        if (row?.overlap_days) meta.push(`${daysLabel(row.overlap_days)} already counted`);
+        if (row?.outside_period_days) meta.push(`${daysLabel(row.outside_period_days)} outside period`);
+        return `<tr data-id="${period.id}">
+            <td class="selection-cell"><input type="checkbox" data-action="select" aria-label="Select ${label}, ${dates}"></td>
+            <td><span class="entry-name">${label}</span><span class="entry-dates">${dates}</span>${meta.length ? `<span class="entry-meta">${escapeHtml(meta.join(' · '))}</span>` : ''}</td>
+            <td class="type-cell"><span class="type-badge ${period.start_date === period.end_date ? 'single' : ''}">${period.start_date === period.end_date ? 'Single day' : 'Date range'}</span></td>
+            <td class="numeric-cell excluded-cell">${row ? formatNumber(row.excluded_days) : '—'}</td>
+            <td class="numeric-cell leave-days">${row ? formatNumber(row.leave_days) : '—'}</td>
+            <td><div class="entry-actions"><button type="button" class="icon-button" data-action="edit" title="Edit entry" aria-label="Edit ${label}, ${dates}">${icon('edit')}</button><button type="button" class="icon-button delete-entry" data-action="delete" title="Delete entry" aria-label="Delete ${label}, ${dates}">${icon('trash')}</button></div></td>
+        </tr>`;
+    }).join('');
+    $('entry-range').textContent = page.total
+        ? `${page.start + 1}–${page.start + page.items.length} of ${page.total} ${page.total !== periods.length ? `matching (${periods.length} total)` : 'entries'}`
+        : emptyPlan ? 'No entries yet' : `0 matching · ${periods.length} total`;
+    $('page-indicator').textContent = `${page.page} / ${page.pages}`;
+    $('previous-page').disabled = page.page <= 1;
+    $('next-page').disabled = page.page >= page.pages;
+    syncSelection();
+    if (focusedId && focusedAction) {
+        $(`leave-periods-list`).querySelector(`tr[data-id="${CSS.escape(focusedId)}"] [data-action="${focusedAction}"]`)?.focus({ preventScroll: true });
+    }
+}
+
+function syncSelection() {
+    for (const row of $('leave-periods-list').querySelectorAll('tr')) {
+        const checked = state.selected.has(row.dataset.id);
+        row.classList.toggle('is-selected', checked);
+        row.querySelector('[data-action="select"]').checked = checked;
+    }
+    const selectedOnPage = state.visible.filter(period => state.selected.has(period.id)).length;
+    $('select-page').checked = state.visible.length > 0 && selectedOnPage === state.visible.length;
+    $('select-page').indeterminate = selectedOnPage > 0 && selectedOnPage < state.visible.length;
+    $('selected-count').textContent = `${state.selected.size} selected`;
+    $('bulk-toolbar').hidden = state.selected.size === 0;
+    $('select-all-matching').textContent = `Select all ${state.matches.length} matching`;
+    $('select-all-matching').disabled = state.matches.every(period => state.selected.has(period.id));
+}
+
+function showEntryEditor(id = null) {
+    const period = state.data.leave_periods.find(entry => entry.id === id);
+    state.editingId = period?.id || null;
+    let defaultDate = localToday();
+    if (dateNumber(state.data.start_date) !== null && dateNumber(state.data.end_date) !== null && state.data.start_date <= state.data.end_date) {
+        defaultDate = dateString(Math.min(dateNumber(state.data.end_date), Math.max(dateNumber(state.data.start_date), dateNumber(defaultDate))));
+    }
+    $('entry-label').value = period?.label || '';
+    $('entry-start').value = period?.start_date || defaultDate;
+    $('entry-end').value = period?.end_date || defaultDate;
+    $('entry-single-day').checked = !period || period.start_date === period.end_date;
+    $('entry-dialog-title').textContent = period ? 'Edit your time off.' : 'Add a little time off.';
+    $('save-entry-text').textContent = period ? 'Save changes' : 'Add entry';
+    $('entry-error').hidden = true;
+    updateEntryDates();
+    $('entry-dialog').showModal();
+}
+
+function updateEntryDates() {
+    const single = $('entry-single-day').checked;
+    $('entry-end').disabled = single;
+    $('entry-end').required = !single;
+    if (single) $('entry-end').value = $('entry-start').value;
+    const reversed = $('entry-start').value && $('entry-end').value && $('entry-start').value > $('entry-end').value;
+    $('entry-end').setCustomValidity(reversed ? 'The last day must be on or after the first day.' : '');
+    updateEntryPreview();
+}
+
+function updateEntryPreview() {
+    const preview = previewPeriod($('entry-start').value, $('entry-end').value, state.data, state.holidayData);
+    if (!preview) {
+        $('preview-days').textContent = 'Choose a valid date range';
+        $('preview-detail').textContent = 'First and last days are both included.';
+    } else if (preview.unavailable) {
+        $('preview-days').textContent = state.holidayError ? 'Holiday preview unavailable' : 'Loading your holiday calendar…';
+        $('preview-detail').textContent = 'Your final deduction is checked by the server when you save.';
+    } else {
+        $('preview-days').textContent = `${daysLabel(preview.leave_days)} of leave`;
+        const detail = [];
+        if (preview.excluded_days) detail.push(`${daysLabel(preview.excluded_days)} excluded`);
+        if (preview.outside_period_days) detail.push(`${daysLabel(preview.outside_period_days)} outside your period`);
+        $('preview-detail').textContent = detail.length ? `${detail.join(' · ')}. Before overlap checks.` : 'Before overlap checks. Your calendar settings apply.';
+    }
+}
+
+function saveEntry(event) {
+    event.preventDefault();
+    const period = {
+        id: state.editingId || newEntryId(),
+        label: $('entry-label').value.trim(),
+        start_date: $('entry-start').value,
+        end_date: $('entry-single-day').checked ? $('entry-start').value : $('entry-end').value,
+    };
+    period.is_range = period.start_date !== period.end_date;
+    const index = state.data.leave_periods.findIndex(entry => entry.id === state.editingId);
+    const periods = [...state.data.leave_periods];
+    if (index >= 0) periods[index] = period;
+    else periods.push(period);
+    try {
+        normaliseData({ ...payload(), leave_periods: periods });
+    } catch (error) {
+        $('entry-error').textContent = error.message;
+        $('entry-error').hidden = false;
+        return;
+    }
+    state.data.leave_periods = periods;
+    rebuildYearOptions();
+    // Show the saved entry even when an old filter would otherwise hide it.
+    if (!filterEntries(periods, state.query, state.year, state.sort).some(entry => entry.id === period.id)) {
+        state.query = '';
+        state.year = 'all';
+        $('entry-search').value = '';
+        $('year-filter').value = 'all';
+    }
+    const matches = filterEntries(periods, state.query, state.year, state.sort);
+    state.page = Math.floor(matches.findIndex(entry => entry.id === period.id) / state.pageSize) + 1;
+    $('entry-dialog').close();
+    scheduleCalculation({ immediate: true, report: true });
+    showToast(index >= 0 ? 'Leave entry updated.' : 'A little time off, added to your plan.');
+}
+
+async function deleteEntries(ids) {
+    const count = ids.size;
+    if (!count || !await confirmAction(
+        count === 1 ? 'Remove this leave entry?' : `Remove ${count} leave entries?`,
+        'These entries will be removed from your plan and your balance will be recalculated. You can undo this immediately afterwards.',
+        count === 1 ? 'Remove entry' : `Remove ${count} entries`,
+    )) return;
+    const removed = state.data.leave_periods.map((period, index) => ({ period, index })).filter(item => ids.has(item.period.id));
+    state.data.leave_periods = state.data.leave_periods.filter(period => !ids.has(period.id));
+    ids.forEach(id => state.selected.delete(id));
+    rebuildYearOptions();
+    scheduleCalculation({ immediate: true });
+    showToast(`${count} ${count === 1 ? 'entry' : 'entries'} removed.`, () => {
+        if (state.data.leave_periods.length + removed.length > MAX_ENTRIES) {
+            showAlert(`Restoring these entries would exceed the ${MAX_ENTRIES}-entry limit. Export your current plan first.`);
             return;
         }
-
-        // Show loading state
-        setLoadingState(true);
-
-        try {
-            // Prepare form data with leave periods
-            const formData = prepareFormData();
-            
-            // Submit to API
-            const response = await fetch('/calculate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formData)
-            });
-
-            const result = await response.json();
-
-            if (result.success) {
-                displayResults(result.data);
-            } else {
-                showAlert('danger', result.error || 'An error occurred during calculation');
-            }
-        } catch (error) {
-            console.error('Error:', error);
-            showAlert('danger', 'Network error. Please check your connection and try again.');
-        } finally {
-            setLoadingState(false);
-        }
-    });
-
-    // Date input validation
-    document.getElementById('start_date').addEventListener('change', validateDates);
-    document.getElementById('end_date').addEventListener('change', validateDates);
-});
-
-// Initialize leave period management
-function initializeLeavePeriods() {
-    const addBtn = document.getElementById('add-leave-period');
-    addBtn.addEventListener('click', addLeavePeriod);
-    updateLeavePeriodDisplay();
-}
-
-// Add a new leave period with performance optimization
-function addLeavePeriod() {
-    const periodId = ++periodIdCounter;
-    const period = {
-        id: periodId,
-        startDate: '',
-        endDate: '',
-        isRange: false
-    };
-    
-    leavePeriods.push(period);
-    
-    // Batch DOM operations to reduce reflows
-    requestAnimationFrame(() => {
-        renderLeavePeriod(period);
-        updateLeavePeriodDisplay();
+        for (const item of removed) state.data.leave_periods.splice(Math.min(item.index, state.data.leave_periods.length), 0, item.period);
+        rebuildYearOptions();
+        scheduleCalculation({ immediate: true });
+        showToast('Your leave entries have been restored.');
     });
 }
 
-// Render a leave period in the UI
-function renderLeavePeriod(period) {
-    const container = document.getElementById('leave-periods-list');
-    const periodElement = document.createElement('div');
-    periodElement.className = 'leave-period-item border rounded p-3 mb-2 bg-white';
-    periodElement.dataset.periodId = period.id;
-    
-    periodElement.innerHTML = `
-        <div class="row g-2 align-items-center">
-            <div class="col-md-3">
-                <label class="form-label small mb-1">Period Type</label>
-                <select class="form-select form-select-sm period-type" data-period-id="${period.id}">
-                    <option value="single">Single Day</option>
-                    <option value="range">Date Range</option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label small mb-1">Start Date</label>
-                <input type="date" class="form-control form-control-sm period-start-date"
-                       data-period-id="${period.id}" required>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label small mb-1">End Date</label>
-                <input type="date" class="form-control form-control-sm period-end-date"
-                       data-period-id="${period.id}" disabled>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label small mb-1">Days</label>
-                <input type="text" class="form-control form-control-sm period-days-display"
-                       data-period-id="${period.id}" readonly placeholder="0">
-            </div>
-            <div class="col-md-1">
-                <label class="form-label small mb-1">&nbsp;</label>
-                <button type="button" class="btn btn-sm btn-outline-danger d-block remove-period"
-                        data-period-id="${period.id}">
-                    <i class="bi bi-trash"></i>
-                </button>
-            </div>
-        </div>
-    `;
-    
-    container.appendChild(periodElement);
-    
-    // Add event listeners for this period
-    addPeriodEventListeners(period.id);
-}
-
-// Add event listeners for a specific period with cleanup tracking
-function addPeriodEventListeners(periodId) {
-    const periodElement = document.querySelector(`[data-period-id="${periodId}"]`);
-    
-    // Store listeners for cleanup
-    const listeners = [];
-    
-    // Period type change
-    const typeSelect = periodElement.querySelector('.period-type');
-    const typeChangeHandler = function() {
-        togglePeriodType(periodId, this.value);
-    };
-    typeSelect.addEventListener('change', typeChangeHandler);
-    listeners.push({ element: typeSelect, event: 'change', handler: typeChangeHandler });
-    
-    // Date changes with debouncing for performance
-    const startDateInput = periodElement.querySelector('.period-start-date');
-    const endDateInput = periodElement.querySelector('.period-end-date');
-    
-    const startDateHandler = debounce(function() {
-        updatePeriodData(periodId);
-        calculatePeriodDays(periodId);
-    }, 300);
-    
-    const endDateHandler = debounce(function() {
-        updatePeriodData(periodId);
-        calculatePeriodDays(periodId);
-    }, 300);
-    
-    startDateInput.addEventListener('change', startDateHandler);
-    endDateInput.addEventListener('change', endDateHandler);
-    listeners.push({ element: startDateInput, event: 'change', handler: startDateHandler });
-    listeners.push({ element: endDateInput, event: 'change', handler: endDateHandler });
-    
-    // Remove button
-    const removeBtn = periodElement.querySelector('.remove-period');
-    const removeHandler = function() {
-        removeLeavePeriod(periodId);
-    };
-    removeBtn.addEventListener('click', removeHandler);
-    listeners.push({ element: removeBtn, event: 'click', handler: removeHandler });
-    
-    // Store listeners for cleanup
-    eventListeners.set(periodId, listeners);
-}
-
-// Debounce utility to prevent excessive function calls
-function debounce(func, wait) {
-    let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
-        clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
-    };
-}
-
-// Toggle between single day and date range
-function togglePeriodType(periodId, type) {
-    const periodElement = document.querySelector(`[data-period-id="${periodId}"]`);
-    const endDateInput = periodElement.querySelector('.period-end-date');
-    const startDateInput = periodElement.querySelector('.period-start-date');
-    
-    const period = leavePeriods.find(p => p.id === periodId);
-    if (period) {
-        period.isRange = type === 'range';
-        
-        if (type === 'range') {
-            endDateInput.disabled = false;
-            endDateInput.required = true;
-        } else {
-            endDateInput.disabled = true;
-            endDateInput.required = false;
-            endDateInput.value = startDateInput.value;
-            period.endDate = startDateInput.value;
-        }
-        
-        calculatePeriodDays(periodId);
-        updateLeavePeriodDisplay();
-    }
-}
-
-// Update period data from inputs
-function updatePeriodData(periodId) {
-    const periodElement = document.querySelector(`[data-period-id="${periodId}"]`);
-    const startDate = periodElement.querySelector('.period-start-date').value;
-    const endDate = periodElement.querySelector('.period-end-date').value;
-    const isRange = periodElement.querySelector('.period-type').value === 'range';
-    
-    const period = leavePeriods.find(p => p.id === periodId);
-    if (period) {
-        period.startDate = startDate;
-        period.endDate = isRange ? endDate : startDate;
-        period.isRange = isRange;
-        updateLeavePeriodDisplay();
-    }
-}
-
-// Calculate and display days for a specific period with caching
-function calculatePeriodDays(periodId) {
-    const period = leavePeriods.find(p => p.id === periodId);
-    if (!period || !period.startDate) return;
-    
-    // Create cache key
-    const cacheKey = `${period.startDate}-${period.endDate || period.startDate}`;
-    
-    // Check cache first
-    if (calculationCache.has(cacheKey)) {
-        const cachedDays = calculationCache.get(cacheKey);
-        const periodElement = document.querySelector(`[data-period-id="${periodId}"]`);
-        const daysDisplay = periodElement.querySelector('.period-days-display');
-        daysDisplay.value = cachedDays;
+async function loadHolidayCalendar(force = false) {
+    const { start_date: start, end_date: end, holiday_region: region } = state.data;
+    if (dateNumber(start) === null || dateNumber(end) === null || start > end) {
+        state.holidayController?.abort();
+        state.holidayKey = null;
+        state.holidayData = null;
+        state.holidayLoading = false;
+        state.holidayError = 'Choose a valid calculation period to see public holidays.';
+        renderHolidaySummary();
+        if ($('holidays-dialog').open) renderHolidayDialog();
         return;
     }
-    
-    // Parse dates with caching
-    const startDate = getCachedDate(period.startDate);
-    const endDate = getCachedDate(period.endDate || period.startDate);
-    
-    if (startDate && endDate && startDate <= endDate) {
-        const days = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-        
-        // Cache the result
-        calculationCache.set(cacheKey, days);
-        
-        const periodElement = document.querySelector(`[data-period-id="${periodId}"]`);
-        const daysDisplay = periodElement.querySelector('.period-days-display');
-        daysDisplay.value = days;
-        
-        // Throttle display updates
-        requestAnimationFrame(() => updateLeavePeriodDisplay());
+    const key = `${start}|${end}|${region || 'AU'}`;
+    if (key === state.holidayKey && !force) return;
+    state.holidayController?.abort();
+    state.holidayKey = key;
+    state.holidayData = null;
+    state.holidayError = null;
+    if (state.holidayCache.has(key) && !force) {
+        state.holidayData = state.holidayCache.get(key);
+        state.holidayLoading = false;
+        renderHolidaySummary();
+        if ($('holidays-dialog').open) renderHolidayDialog();
+        updateEntryPreview();
+        return;
     }
-}
-
-// Cache date parsing to avoid repeated operations
-function getCachedDate(dateString) {
-    if (!dateString) return null;
-    
-    if (dateCache.has(dateString)) {
-        return dateCache.get(dateString);
-    }
-    
-    const date = new Date(dateString);
-    dateCache.set(dateString, date);
-    return date;
-}
-
-// Remove a leave period with proper cleanup
-function removeLeavePeriod(periodId) {
-    // Clean up event listeners to prevent memory leaks
-    if (eventListeners.has(periodId)) {
-        const listeners = eventListeners.get(periodId);
-        listeners.forEach(({ element, event, handler }) => {
-            element.removeEventListener(event, handler);
-        });
-        eventListeners.delete(periodId);
-    }
-    
-    // Remove from array
-    leavePeriods = leavePeriods.filter(p => p.id !== periodId);
-    
-    // Remove DOM element
-    const periodElement = document.querySelector(`[data-period-id="${periodId}"]`);
-    if (periodElement) {
-        periodElement.remove();
-    }
-    
-    // Clear related cache entries
-    calculationCache.clear(); // Clear calculation cache when periods change
-    
-    updateLeavePeriodDisplay();
-}
-
-// Update the leave period display and totals
-function updateLeavePeriodDisplay() {
-    const container = document.getElementById('leave-periods-list');
-    const noPeriodsMessage = document.getElementById('no-periods-message');
-    const totalBadge = document.getElementById('total-leave-days');
-    
-    if (leavePeriods.length === 0) {
-        noPeriodsMessage.style.display = 'block';
-        container.style.display = 'none';
-    } else {
-        noPeriodsMessage.style.display = 'none';
-        container.style.display = 'block';
-    }
-    
-    // Calculate total days
-    const totalDays = calculateTotalLeaveDays();
-    totalBadge.textContent = `Total: ${totalDays} days`;
-}
-
-// Calculate total leave days from all periods with optimization
-function calculateTotalLeaveDays() {
-    let total = 0;
-    
-    // Use for loop instead of reduce for better performance
-    for (const period of leavePeriods) {
-        if (period.startDate) {
-            // Use cached date parsing
-            const startDate = getCachedDate(period.startDate);
-            const endDate = getCachedDate(period.endDate || period.startDate);
-            
-            if (startDate && endDate && startDate <= endDate) {
-                const days = Math.floor((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
-                total += days;
-            }
-        }
-    }
-    
-    return total;
-}
-
-// Prepare form data for submission
-function prepareFormData() {
-    return {
-        start_date: document.getElementById('start_date').value,
-        end_date: document.getElementById('end_date').value,
-        annual_entitlement: parseFloat(document.getElementById('annual_entitlement').value),
-        leave_periods: leavePeriods.map(period => ({
-            start_date: period.startDate,
-            end_date: period.endDate || period.startDate,
-            is_range: period.isRange
-        })).filter(period => period.start_date) // Only include periods with start dates
-    };
-}
-
-function validateForm() {
-    const startDate = document.getElementById('start_date').value;
-    const endDate = document.getElementById('end_date').value;
-    const annualEntitlement = parseFloat(document.getElementById('annual_entitlement').value);
-
-    // Check required fields
-    if (!startDate || !endDate || isNaN(annualEntitlement)) {
-        showAlert('warning', 'Please fill in all required fields');
-        return false;
-    }
-
-    // Validate dates
-    if (new Date(startDate) > new Date(endDate)) {
-        showAlert('warning', 'Start date must be before or equal to end date');
-        return false;
-    }
-
-    // Validate numeric inputs
-    if (annualEntitlement <= 0) {
-        showAlert('warning', 'Annual entitlement must be positive');
-        return false;
-    }
-
-    // Validate leave periods
-    if (!validateLeavePeriods()) {
-        return false;
-    }
-
-    return true;
-}
-
-// Validate all leave periods
-function validateLeavePeriods() {
-    for (const period of leavePeriods) {
-        if (!period.startDate) {
-            showAlert('warning', 'All leave periods must have a start date');
-            return false;
-        }
-        
-        if (period.isRange && !period.endDate) {
-            showAlert('warning', 'Date ranges must have both start and end dates');
-            return false;
-        }
-        
-        if (period.endDate && new Date(period.startDate) > new Date(period.endDate)) {
-            showAlert('warning', 'Leave period start date must be before or equal to end date');
-            return false;
-        }
-    }
-    return true;
-}
-
-function validateDates() {
-    const startDate = document.getElementById('start_date').value;
-    const endDate = document.getElementById('end_date').value;
-    
-    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
-        document.getElementById('end_date').setCustomValidity('End date must be after start date');
-    } else {
-        document.getElementById('end_date').setCustomValidity('');
-    }
-}
-
-function setLoadingState(loading) {
-    const calculateBtn = document.getElementById('calculate-btn');
-    const btnText = document.getElementById('btn-text');
-    const btnSpinner = document.getElementById('btn-spinner');
-
-    if (loading) {
-        calculateBtn.disabled = true;
-        btnText.classList.add('d-none');
-        btnSpinner.classList.remove('d-none');
-    } else {
-        calculateBtn.disabled = false;
-        btnText.classList.remove('d-none');
-        btnSpinner.classList.add('d-none');
-    }
-}
-
-function displayResults(data) {
-    // Show results section
-    const resultsSection = document.querySelector('[data-results-section]');
-    resultsSection.style.display = 'block';
-    
-    // Populate main result with optional secondary value
-    const mainResultElement = document.getElementById('main-result');
-    if (data.result.display_secondary) {
-        // Display both days and hours
-        mainResultElement.innerHTML = `
-            <div>${data.result.formatted}</div>
-            <div class="text-muted" style="font-size: 0.6em; margin-top: 0.25rem;">
-                (${data.result.secondary_formatted})
-            </div>
-        `;
-    } else {
-        // Display only the primary value
-        mainResultElement.textContent = data.result.formatted;
-    }
-    
-    // Populate calculation details
-    document.getElementById('period-duration').textContent = `${data.days_in_period} days`;
-    document.getElementById('entitled-leave').textContent = `${data.entitled_leave_for_period} days`;
-    document.getElementById('leave-taken-display').textContent = `${data.total_leave_taken} days`;
-    document.getElementById('annual-entitlement-display').textContent = `${data.annual_entitlement} days`;
-    
-    // Scroll to results
-    resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    
-    // Show success message
-    showAlert('success', 'Leave balance calculated successfully!');
-}
-
-function showAlert(type, message) {
-    const alertContainer = document.getElementById('alert-container');
-    
-    const alertHtml = `
-        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-            <i class="bi bi-${getAlertIcon(type)} me-2"></i>
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    `;
-    
-    alertContainer.innerHTML = alertHtml;
-    
-    // Auto-dismiss success alerts
-    if (type === 'success') {
-        setTimeout(() => {
-            const alert = alertContainer.querySelector('.alert');
-            if (alert) {
-                const bsAlert = new bootstrap.Alert(alert);
-                bsAlert.close();
-            }
-        }, 3000);
-    }
-}
-
-function getAlertIcon(type) {
-    switch (type) {
-        case 'success': return 'check-circle';
-        case 'danger': return 'exclamation-triangle';
-        case 'warning': return 'exclamation-triangle';
-        case 'info': return 'info-circle';
-        default: return 'info-circle';
-    }
-}
-
-function clearAlerts() {
-    const alertContainer = document.getElementById('alert-container');
-    alertContainer.innerHTML = '';
-}
-
-function resetCalculator() {
-    // Hide results section
-    const resultsSection = document.querySelector('[data-results-section]');
-    resultsSection.style.display = 'none';
-    
-    // Clear alerts
-    clearAlerts();
-    
-    // Scroll back to form
-    document.getElementById('leave-calculator-form').scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'start' 
-    });
-    
-    // Focus on first input
-    document.getElementById('start_date').focus();
-}
-
-// Initialize export/import functionality
-function initializeExportImport() {
-    const exportBtn = document.getElementById('export-data-btn');
-    const importBtn = document.getElementById('import-data-btn');
-    const fileInput = document.getElementById('import-file-input');
-
-    exportBtn.addEventListener('click', exportFormData);
-    importBtn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', handleFileImport);
-}
-
-// Export form data as JSON with memory leak prevention
-function exportFormData() {
-    let downloadUrl = null;
-    
+    state.holidayLoading = true;
+    const controller = new AbortController();
+    state.holidayController = controller;
+    renderHolidaySummary();
+    if ($('holidays-dialog').open) renderHolidayDialog();
+    const query = new URLSearchParams({ start_date: start, end_date: end });
+    if (region) query.set('region', region);
     try {
-        const formData = prepareFormData();
-        
-        // Add metadata to the export
-        const exportData = {
-            metadata: {
-                exportDate: new Date().toISOString(),
-                version: '1.0.0',
-                application: 'Annual Leave Calculator',
-            },
-            formData: formData
-        };
-
-        // Create downloadable file
-        const dataStr = JSON.stringify(exportData, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        
-        // Create download link
-        downloadUrl = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        
-        // Generate filename with timestamp
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
-        link.download = `leave-calculator-data-${timestamp}.json`;
-        
-        // Trigger download
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        showAlert('success', 'Form data exported successfully!');
+        const data = await requestJSON(`/holidays?${query}`, {}, controller);
+        if (state.holidayKey !== key || controller.signal.aborted) return;
+        state.holidayData = data;
+        if (state.holidayCache.size >= 12) state.holidayCache.delete(state.holidayCache.keys().next().value);
+        state.holidayCache.set(key, data);
     } catch (error) {
-        console.error('Export error:', error);
-        showAlert('danger', 'Failed to export form data. Please try again.');
+        if (state.holidayKey !== key || error.name === 'AbortError') return;
+        state.holidayError = error.message;
     } finally {
-        // Always clean up URL to prevent memory leaks
-        if (downloadUrl) {
-            URL.revokeObjectURL(downloadUrl);
+        if (state.holidayKey === key && state.holidayController === controller) {
+            state.holidayLoading = false;
+            renderHolidaySummary();
+            if ($('holidays-dialog').open) renderHolidayDialog();
+            updateEntryPreview();
         }
     }
 }
 
-// Handle file import
-function handleFileImport(event) {
+function renderHolidaySummary() {
+    const summary = $('holiday-summary');
+    summary.classList.toggle('is-active', state.data.exclude_public_holidays);
+    if (state.holidayLoading) summary.textContent = 'Finding your holiday calendar…';
+    else if (state.holidayError) summary.textContent = 'Calendar unavailable. Open to review or retry.';
+    else if (state.holidayData) {
+        const selected = state.holidayData.holidays.filter(holiday => isHolidaySelected(holiday, state.data.holiday_overrides)).length;
+        summary.textContent = state.data.exclude_public_holidays
+            ? `${selected} full-day ${selected === 1 ? 'holiday' : 'holidays'} selected in your period.`
+            : `${state.holidayData.holidays.length} ${state.holidayData.holidays.length === 1 ? 'holiday' : 'holidays'} available · exclusions switched off.`;
+    }
+    const customCount = state.data.additional_excluded_dates.length;
+    if (customCount) summary.textContent += ` ${customCount} custom ${customCount === 1 ? 'date' : 'dates'} saved.`;
+}
+
+function showHolidayDialog() {
+    loadHolidayCalendar();
+    renderHolidayDialog();
+    if (!$('holidays-dialog').open) $('holidays-dialog').showModal();
+}
+
+function renderHolidayDialog() {
+    const data = state.holidayData;
+    const regionName = $('holiday-region').selectedOptions[0]?.textContent || 'National holidays only';
+    $('holiday-calendar-title').textContent = `${regionName} · ${formatRange(state.data.start_date, state.data.end_date)}`;
+    $('holiday-list').setAttribute('aria-busy', String(state.holidayLoading));
+    $('holiday-load-error').hidden = !state.holidayError;
+    $('holiday-error-text').textContent = state.holidayError || '';
+    if (!data) {
+        $('holiday-list').innerHTML = `<p class="holiday-list-message">${state.holidayLoading ? 'Finding your public holidays…' : 'No holiday calendar loaded.'}</p>`;
+    } else {
+        let year = '';
+        $('holiday-list').innerHTML = data.holidays.map(holiday => {
+            let header = '';
+            if (holiday.date.slice(0, 4) !== year) {
+                year = holiday.date.slice(0, 4);
+                header = `<div class="holiday-year">${escapeHtml(year)}</div>`;
+            }
+            return `${header}<label class="holiday-row"><input type="checkbox" data-holiday-date="${escapeHtml(holiday.date)}"><span><span class="holiday-row-name">${escapeHtml(holiday.name)}</span><span class="holiday-row-date">${escapeHtml(formatDate(holiday.date, { weekday: 'long' }))}</span>${holiday.note ? `<span class="holiday-row-note">${escapeHtml(holiday.note)}</span>` : ''}</span><span class="holiday-weekday-tag" aria-hidden="true">${escapeHtml(formatDate(holiday.date, { weekday: 'short', day: undefined, month: undefined, year: undefined }))}</span></label>`;
+        }).join('') || '<p class="holiday-list-message">No full-day public holidays in this period. You can add local dates below.</p>';
+        $('holiday-source-description').textContent = `Generated locally with ${data.source.name} ${data.source.version}. No API key or live connection needed.`;
+        $('holiday-source-notes').innerHTML = data.notes.map(note => `<li>${escapeHtml(note)}</li>`).join('');
+    }
+    syncHolidaySelections();
+    renderCustomDates();
+}
+
+function syncHolidaySelections() {
+    const enabled = state.data.exclude_public_holidays;
+    $('dialog-enable-holidays').checked = enabled;
+    const holidays = state.holidayData?.holidays || [];
+    const byDate = new Map(holidays.map(holiday => [holiday.date, holiday]));
+    for (const input of $('holiday-list').querySelectorAll('[data-holiday-date]')) {
+        const holiday = byDate.get(input.dataset.holidayDate);
+        input.checked = holiday ? isHolidaySelected(holiday, state.data.holiday_overrides) : false;
+        input.disabled = !enabled;
+        input.closest('label').classList.toggle('is-disabled', !enabled);
+    }
+    const selected = holidays.filter(holiday => isHolidaySelected(holiday, state.data.holiday_overrides)).length;
+    $('holiday-selected-count').textContent = state.holidayLoading ? 'Loading holidays…'
+        : `${selected} of ${holidays.length} selected${enabled ? '' : ' · exclusions off'}`;
+    $('select-all-holidays').disabled = !enabled || !holidays.length;
+    $('select-no-holidays').disabled = !enabled || !holidays.length;
+}
+
+function togglePublicHolidays(checked) {
+    state.data.exclude_public_holidays = checked;
+    $('exclude-public-holidays').checked = checked;
+    scheduleCalculation({ report: true });
+}
+
+function setHolidaySelection(holiday, checked) {
+    if (checked === holiday.default_excluded) delete state.data.holiday_overrides[holiday.date];
+    else state.data.holiday_overrides[holiday.date] = checked;
+}
+
+function renderCustomDates() {
+    $('custom-dates-list').innerHTML = state.data.additional_excluded_dates.map(day =>
+        `<span class="custom-date-chip">${escapeHtml(formatDate(day))}<button type="button" class="icon-button" data-remove-date="${day}" aria-label="Remove exclusion for ${escapeHtml(formatDate(day))}">${icon('close')}</button></span>`).join('');
+}
+
+function exportData() {
+    try {
+        const data = normaliseData(payload());
+        const file = {
+            metadata: { application: 'Annual Leave Calculator', version: '2.0.0', exportDate: new Date().toISOString() },
+            formData: data,
+        };
+        const url = URL.createObjectURL(new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `leave-calculator-data-${localToday()}.json`;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast(`All ${data.leave_periods.length} entries and your calculation rules exported.`);
+    } catch (error) {
+        showAlert(`Could not export your plan. ${error.message}`);
+    }
+}
+
+async function importData(event) {
     const file = event.target.files[0];
-    if (!file) return;
-
-    // Check file type
-    if (!file.name.toLowerCase().endsWith('.json')) {
-        showAlert('warning', 'Please select a JSON file.');
-        return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const importedData = JSON.parse(e.target.result);
-            
-            // Validate imported data structure
-            if (validateImportedData(importedData)) {
-                loadFormData(importedData.formData);
-                showAlert('success', 'Form data imported successfully!');
-            } else {
-                showAlert('danger', 'Invalid file format. Please select a valid leave calculator data file.');
-            }
-        } catch (error) {
-            console.error('Import error:', error);
-            showAlert('danger', 'Failed to read file. Please check the file format and try again.');
-        }
-    };
-    
-    reader.readAsText(file);
-    
-    // Reset file input
     event.target.value = '';
-}
-
-// Validate imported data structure
-function validateImportedData(data) {
+    if (!file) return;
     try {
-        // Check if it has the expected structure
-        if (!data || typeof data !== 'object') {
-            return false;
-        }
-
-        // Check for formData property
-        if (!data.formData || typeof data.formData !== 'object') {
-            return false;
-        }
-
-        const formData = data.formData;
-
-        // Validate required fields
-        if (!formData.start_date || !formData.end_date || typeof formData.annual_entitlement !== 'number') {
-            return false;
-        }
-
-        // Validate date formats
-        if (!isValidDateString(formData.start_date) || !isValidDateString(formData.end_date)) {
-            return false;
-        }
-
-        // Validate annual entitlement
-        if (formData.annual_entitlement <= 0) {
-            return false;
-        }
-
-        // Validate leave periods if present
-        if (formData.leave_periods) {
-            if (!Array.isArray(formData.leave_periods)) {
-                return false;
-            }
-
-            for (const period of formData.leave_periods) {
-                if (!period.start_date || !isValidDateString(period.start_date)) {
-                    return false;
-                }
-                if (period.end_date && !isValidDateString(period.end_date)) {
-                    return false;
-                }
-                if (typeof period.is_range !== 'boolean') {
-                    return false;
-                }
-            }
-        }
-
-        return true;
+        if (!file.name.toLowerCase().endsWith('.json') || file.size > 5 * 1024 * 1024) throw new Error('Choose a JSON file no larger than 5 MB.');
+        const imported = JSON.parse(await file.text());
+        const raw = imported?.formData ?? imported;
+        const data = normaliseData(raw);
+        const legacy = !Object.hasOwn(raw, 'excluded_weekdays');
+        if (!await confirmAction('Open this leave plan?', 'This replaces all current entries and calculation rules in this browser. Export your current plan first if you’d like to keep it.', 'Replace plan', false)) return;
+        applyData(data);
+        state.storageBlocked = false;
+        scheduleCalculation({ immediate: true, report: true });
+        showToast(legacy ? 'Plan imported. Original calendar-day counting preserved — adjust your working week to change it.' : `${data.leave_periods.length} leave entries and your calculation rules imported.`);
     } catch (error) {
-        console.error('Validation error:', error);
-        return false;
+        showAlert(`Your current plan has not been changed. ${error instanceof SyntaxError ? 'This file is not valid JSON.' : error.message}`);
     }
 }
 
-// Check if string is a valid date
-function isValidDateString(dateString) {
-    const date = new Date(dateString);
-    return date instanceof Date && !isNaN(date.getTime()) && dateString.match(/^\d{4}-\d{2}-\d{2}$/);
+async function startFresh() {
+    if (!await confirmAction('A fresh start?', 'This clears the plan saved in this browser, including all entries and exclusions. Export a copy first if you want to keep it.', 'Start fresh')) return;
+    applyData(initialData());
+    state.storageBlocked = false;
+    scheduleCalculation({ immediate: true });
+    showToast('A fresh plan. Room for something good.');
 }
 
-// Load form data from imported data
-function loadFormData(formData) {
-    try {
-        // Clear existing alerts
-        clearAlerts();
-
-        // Load basic form fields
-        document.getElementById('start_date').value = formData.start_date;
-        document.getElementById('end_date').value = formData.end_date;
-        document.getElementById('annual_entitlement').value = formData.annual_entitlement;
-
-        // Clear existing leave periods
-        leavePeriods = [];
-        periodIdCounter = 0;
-        const container = document.getElementById('leave-periods-list');
-        container.innerHTML = '';
-
-        // Load leave periods
-        if (formData.leave_periods && formData.leave_periods.length > 0) {
-            formData.leave_periods.forEach(periodData => {
-                const periodId = ++periodIdCounter;
-                const period = {
-                    id: periodId,
-                    startDate: periodData.start_date,
-                    endDate: periodData.end_date,
-                    isRange: periodData.is_range
-                };
-                
-                leavePeriods.push(period);
-                renderLeavePeriod(period);
-                
-                // Set the values in the rendered elements
-                setTimeout(() => {
-                    const periodElement = document.querySelector(`[data-period-id="${periodId}"]`);
-                    if (periodElement) {
-                        periodElement.querySelector('.period-type').value = period.isRange ? 'range' : 'single';
-                        periodElement.querySelector('.period-start-date').value = period.startDate;
-                        
-                        const endDateInput = periodElement.querySelector('.period-end-date');
-                        if (period.isRange) {
-                            endDateInput.disabled = false;
-                            endDateInput.required = true;
-                            endDateInput.value = period.endDate;
-                        } else {
-                            endDateInput.disabled = true;
-                            endDateInput.required = false;
-                            endDateInput.value = period.startDate;
-                        }
-                        
-                        calculatePeriodDays(periodId);
-                    }
-                }, 50);
-            });
-        }
-
-        // Update display
-        updateLeavePeriodDisplay();
-        
-        // Validate dates
-        validateDates();
-
-        // Hide results if visible
-        const resultsSection = document.querySelector('[data-results-section]');
-        if (resultsSection) {
-            resultsSection.style.display = 'none';
-        }
-
-    } catch (error) {
-        console.error('Load data error:', error);
-        showAlert('danger', 'Error loading form data. Some fields may not have been restored.');
+function bindEvents() {
+    $('leave-calculator-form').addEventListener('submit', event => { event.preventDefault(); readSettings(); scheduleCalculation({ immediate: true, report: true }); });
+    for (const id of ['start_date', 'end_date', 'annual_entitlement']) {
+        $(id).addEventListener('input', () => { readSettings(); scheduleCalculation(); });
+        $(id).addEventListener('change', () => { readSettings(); scheduleCalculation({ report: true }); });
     }
-}
-
-// Utility function to format dates
-function formatDate(dateString) {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-AU', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
+    document.querySelectorAll('[name="excluded_weekday"]').forEach(input => input.addEventListener('change', () => { readSettings(); scheduleCalculation(); }));
+    const setWeekdays = weekdays => {
+        document.querySelectorAll('[name="excluded_weekday"]').forEach(input => { input.checked = weekdays.includes(Number(input.value)); });
+        readSettings();
+        scheduleCalculation();
+    };
+    $('weekend-preset').addEventListener('click', () => setWeekdays([5, 6]));
+    $('all-days-preset').addEventListener('click', () => setWeekdays([]));
+    $('exclude-public-holidays').addEventListener('change', event => togglePublicHolidays(event.target.checked));
+    $('dialog-enable-holidays').addEventListener('change', event => togglePublicHolidays(event.target.checked));
+    $('holiday-region').addEventListener('change', () => {
+        state.data.holiday_overrides = {};
+        readSettings();
+        scheduleCalculation({ report: true });
+        showToast('Holiday selections reset for this region. Your custom dates are unchanged.');
     });
-}
-
-// Add performance monitoring and cleanup on page unload
-window.addEventListener('beforeunload', function() {
-    // Clean up all event listeners
-    eventListeners.forEach((listeners, periodId) => {
-        listeners.forEach(({ element, event, handler }) => {
-            element.removeEventListener(event, handler);
+    $('review-holidays').addEventListener('click', showHolidayDialog);
+    $('nav-holidays').addEventListener('click', showHolidayDialog);
+    $('retry-holidays').addEventListener('click', () => loadHolidayCalendar(true));
+    $('holiday-list').addEventListener('change', event => {
+        const holiday = state.holidayData?.holidays.find(item => item.date === event.target.dataset.holidayDate);
+        if (!holiday) return;
+        setHolidaySelection(holiday, event.target.checked);
+        scheduleCalculation();
+    });
+    for (const [id, checked] of [['select-all-holidays', true], ['select-no-holidays', false]]) {
+        $(id).addEventListener('click', () => {
+            for (const holiday of state.holidayData?.holidays || []) setHolidaySelection(holiday, checked);
+            scheduleCalculation();
         });
+    }
+    $('custom-date-form').addEventListener('submit', event => {
+        event.preventDefault();
+        const day = $('custom-exclusion-date').value;
+        if (dateNumber(day) === null) return;
+        if (state.data.additional_excluded_dates.includes(day)) { showToast('That date is already excluded.'); return; }
+        if (state.data.additional_excluded_dates.length >= 1000) { showToast('You can add up to 1000 custom dates.'); return; }
+        state.data.additional_excluded_dates.push(day);
+        state.data.additional_excluded_dates.sort();
+        $('custom-exclusion-date').value = '';
+        renderCustomDates();
+        scheduleCalculation();
     });
-    
-    // Clear all caches
-    dateCache.clear();
-    calculationCache.clear();
-    
-});
+    $('custom-dates-list').addEventListener('click', event => {
+        const button = event.target.closest('[data-remove-date]');
+        if (!button) return;
+        state.data.additional_excluded_dates = state.data.additional_excluded_dates.filter(day => day !== button.dataset.removeDate);
+        renderCustomDates();
+        $('custom-exclusion-date').focus();
+        scheduleCalculation();
+    });
+    $('add-leave-period').addEventListener('click', () => showEntryEditor());
+    $('empty-add').addEventListener('click', () => showEntryEditor());
+    $('entry-form').addEventListener('submit', saveEntry);
+    ['entry-start', 'entry-end', 'entry-single-day'].forEach(id => $(id).addEventListener('input', updateEntryDates));
+    $('entry-search').addEventListener('input', event => { state.query = event.target.value; state.page = 1; renderEntries(); });
+    $('year-filter').addEventListener('change', event => { state.year = event.target.value; state.page = 1; renderEntries(); });
+    $('entry-sort').addEventListener('change', event => { state.sort = event.target.value; state.page = 1; renderEntries(); });
+    $('page-size').addEventListener('change', event => { state.pageSize = Number(event.target.value); state.page = 1; renderEntries(); });
+    $('previous-page').addEventListener('click', () => { state.page--; renderEntries(); });
+    $('next-page').addEventListener('click', () => { state.page++; renderEntries(); });
+    $('clear-filters').addEventListener('click', () => {
+        state.query = ''; state.year = 'all'; state.page = 1;
+        $('entry-search').value = ''; $('year-filter').value = 'all'; renderEntries(); $('entry-search').focus();
+    });
+    $('leave-periods-list').addEventListener('click', event => {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+        const id = button.closest('tr').dataset.id;
+        if (button.dataset.action === 'edit') showEntryEditor(id);
+        if (button.dataset.action === 'delete') deleteEntries(new Set([id]));
+    });
+    $('leave-periods-list').addEventListener('change', event => {
+        if (event.target.dataset.action !== 'select') return;
+        const id = event.target.closest('tr').dataset.id;
+        if (event.target.checked) state.selected.add(id); else state.selected.delete(id);
+        syncSelection();
+    });
+    $('select-page').addEventListener('change', event => {
+        state.visible.forEach(period => { if (event.target.checked) state.selected.add(period.id); else state.selected.delete(period.id); });
+        syncSelection();
+    });
+    $('select-all-matching').addEventListener('click', () => { state.matches.forEach(period => state.selected.add(period.id)); syncSelection(); });
+    $('clear-selection').addEventListener('click', () => { state.selected.clear(); syncSelection(); });
+    $('delete-selected').addEventListener('click', () => deleteEntries(new Set(state.selected)));
+    $('export-data-btn').addEventListener('click', exportData);
+    $('import-data-btn').addEventListener('click', () => $('import-file-input').click());
+    $('import-file-input').addEventListener('change', importData);
+    $('start-fresh').addEventListener('click', startFresh);
+    $('start-fresh-inline').addEventListener('click', startFresh);
+    $('dismiss-alert').addEventListener('click', clearAlert);
+    $('dismiss-toast').addEventListener('click', hideToast);
+    $('undo-action').addEventListener('click', () => { const undo = state.undo; hideToast(); undo?.(); });
+    document.querySelectorAll('[data-close-dialog]').forEach(button => button.addEventListener('click', () => button.closest('dialog').close()));
+    for (const dialog of document.querySelectorAll('dialog')) {
+        dialog.addEventListener('click', event => {
+            const rect = dialog.getBoundingClientRect();
+            if (event.target === dialog && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) dialog.close('cancel');
+        });
+        dialog.addEventListener('close', () => { document.body.style.overflow = document.querySelector('dialog[open]') ? 'hidden' : ''; });
+        new MutationObserver(() => { if (dialog.open) document.body.style.overflow = 'hidden'; }).observe(dialog, { attributes: true, attributeFilter: ['open'] });
+    }
+    document.querySelectorAll('.navigation a').forEach(link => link.addEventListener('click', () => {
+        document.querySelectorAll('.navigation a').forEach(item => { item.classList.remove('active'); item.removeAttribute('aria-current'); });
+        link.classList.add('active'); link.setAttribute('aria-current', 'location');
+    }));
+}
 
-// Add input formatting for better UX with performance optimization
-document.addEventListener('DOMContentLoaded', function() {
-    // Format number inputs with debouncing
-    const numberInputs = document.querySelectorAll('input[type="number"]');
-    const inputHandler = debounce(function() {
-        // Ensure positive values
-        if (parseFloat(this.value) < 0) {
-            this.value = '0';
+function initialise() {
+    let data = initialData();
+    let restoreError = null;
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) data = normaliseData(JSON.parse(saved).formData);
+    } catch (error) {
+        if (!(error instanceof DOMException)) {
+            state.storageBlocked = true;
+            restoreError = 'Your saved plan could not be restored and has not been overwritten. Import a backup or start a fresh calculation.';
+            $('save-status').textContent = 'Saved plan needs attention';
         }
-    }, 200);
-    
-    numberInputs.forEach(input => {
-        input.addEventListener('input', inputHandler);
-    });
-});
+    }
+    applyData(data);
+    bindEvents();
+    scheduleCalculation({ immediate: true });
+    if (restoreError) showAlert(restoreError);
+}
+
+initialise();

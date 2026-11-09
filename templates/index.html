@@ -1,233 +1,211 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-AU">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#263d32">
+    <meta name="description" content="A clearer picture of your annual leave. Plan time off, customise your working week and exclude Australian public holidays.">
     <title>Annual Leave Calculator</title>
-    
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    
-    <!-- Bootstrap Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-    
-    <!-- Custom CSS -->
-    <link href="/static/css/style.css" rel="stylesheet">
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <link rel="preload" href="/static/fonts/dm-sans-variable.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="/static/fonts/instrument-serif.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <script type="module" src="/static/js/app.js"></script>
 </head>
 <body>
-    <div class="container my-5">
-        <!-- Header -->
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
-                <div class="text-center mb-5">
-                    <i class="bi bi-calendar-check text-primary" style="font-size: 3rem;"></i>
-                    <h1 class="display-4 fw-bold text-primary mt-3">Annual Leave Calculator</h1>
-                    <p class="lead text-muted">Calculate your leave balance based on employment period and entitlements</p>
-                </div>
-            </div>
+    <a class="skip-link" href="#main-content">Skip to calculator</a>
+    <svg class="icon-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+        <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M16 3v4M8 3v4M3 11h18m-13 5h3m3 0h2"/></symbol>
+        <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></symbol>
+        <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h7m4 0h5M4 17h3m4 0h9"/><circle cx="13" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+        <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6"/></symbol>
+        <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m-4-4 4 4 4-4M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol>
+        <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V3M8 7l4-4 4 4M4 16v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></symbol>
+        <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+        <symbol id="i-edit" viewBox="0 0 24 24"><path d="m14 5 5 5M4 20l5-1L20 8a2.1 2.1 0 0 0-5-5L4 14z"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></symbol>
+        <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+        <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v.1"/></symbol>
+        <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 8a8 8 0 1 0 .2 7M20 3v5h-5"/></symbol>
+        <symbol id="i-shield" viewBox="0 0 24 24"><path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6z"/><path d="m8 12 3 3 5-6"/></symbol>
+        <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M20 3C8 3 3 7 5 14c2 7 15 5 15-11ZM3 21 15 9"/></symbol>
+    </svg>
+
+    <aside class="sidebar" aria-label="Workspace navigation">
+        <a class="brand" href="#overview" title="Annual Leave Calculator home">
+            <span class="brand-mark"><svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg></span>
+            <span>leave<span class="brand-dot">.</span><small>THE ANNUAL LEAVE CALCULATOR</small></span>
+        </a>
+        <div class="nav-label">YOUR WORKSPACE</div>
+        <nav class="navigation">
+            <a href="#overview" class="nav-link active" aria-current="location" aria-label="Overview"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg><span>Overview</span></a>
+            <a href="#leave-entries" class="nav-link" id="nav-entries-link" aria-label="Leave entries 0"><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg><span>Leave entries</span> <span id="nav-entry-count" class="nav-count" aria-hidden="true">0</span></a>
+            <a href="#calculation-settings" class="nav-link" aria-label="Calculation rules"><svg class="icon" aria-hidden="true"><use href="#i-sliders"/></svg><span>Calculation rules</span></a>
+            <button type="button" class="nav-link" id="nav-holidays" aria-label="Public holidays"><svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg><span>Public holidays</span></button>
+        </nav>
+        <div class="sidebar-note">
+            <svg class="icon" aria-hidden="true"><use href="#i-leaf"/></svg>
+            <p>Less counting.<br><em>More living.</em></p>
+            <span>A little space for your next break.</span>
         </div>
+        <div class="sidebar-bottom">
+            <span class="privacy-label"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg> No account. Just your plans.</span>
+            <button type="button" class="text-button muted" id="start-fresh">Start a fresh calculation <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg></button>
+        </div>
+    </aside>
 
-        <!-- Main Calculator Form -->
-        <div class="row justify-content-center">
-            <div class="col-lg-8">
-                <div class="card shadow-lg border-0">
-                    <div class="card-header bg-primary text-white">
-                        <h4 class="mb-0"><i class="bi bi-calculator me-2"></i>Leave Balance Calculator</h4>
-                    </div>
-                    <div class="card-body p-4">
-                        <!-- Alert for errors -->
-                        <div id="alert-container"></div>
+    <main id="main-content" class="main-content">
+        <header class="topbar">
+            <div class="breadcrumb">Your workspace <span>/</span> <strong>Leave planner</strong></div>
+            <div class="topbar-actions">
+                <span class="save-status" id="save-status"><span class="status-dot"></span> Saved in this browser</span>
+                <span class="topbar-divider" aria-hidden="true"></span>
+                <button type="button" class="button button-quiet" id="import-data-btn"><svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg> Import</button>
+                <button type="button" class="button button-outline" id="export-data-btn"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg> Export</button>
+                <input type="file" id="import-file-input" accept=".json,application/json" hidden aria-label="Import leave calculator data">
+            </div>
+        </header>
 
-                        <!-- Calculator Form -->
+        <div class="page-content" id="overview">
+            <noscript><div class="notice notice-error">JavaScript is needed to manage entries and calculate your balance. Please enable it to use this planner.</div></noscript>
+            <div class="page-heading">
+                <div><p class="eyebrow">A LITTLE PLANNING. A LITTLE POSSIBILITY.</p><h1>Your time, <em>accounted for.</em></h1><p class="page-subtitle">A clearer picture of your leave. More room for your next break.</p></div>
+                <div class="period-tag"><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg><span id="heading-period">Your calculation period</span></div>
+            </div>
+
+            <div id="alert-container" class="notice notice-error" role="alert" hidden><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><span id="alert-message"></span><button type="button" class="icon-button" id="dismiss-alert" aria-label="Dismiss message"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+
+            <section class="summary-grid" aria-label="Leave balance overview" aria-busy="true" id="balance-overview">
+                <div class="balance-card summary-card">
+                    <div class="summary-label"><span id="balance-label">Available balance</span><svg class="icon" aria-hidden="true"><use href="#i-leaf"/></svg></div>
+                    <div class="balance-value"><span id="balance-value">—</span><span id="balance-unit">days</span></div>
+                    <div class="balance-footer"><span id="balance-secondary">Making room for time off</span><span class="live-indicator" id="calculation-status" role="status">Calculating…</span></div>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Leave accrued <span class="metric-icon"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg></span></div>
+                    <div class="metric-value"><span id="accrued-value">—</span><small>days</small></div>
+                    <p id="accrual-detail">Pro-rated for your period</p>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Leave deducted <span class="metric-icon sand"><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg></span></div>
+                    <div class="metric-value"><span id="taken-value">—</span><small>days</small></div>
+                    <p id="taken-detail">From your leave entries</p>
+                </div>
+                <div class="summary-card">
+                    <div class="summary-label">Days kept free <span class="metric-icon lilac"><svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg></span></div>
+                    <div class="metric-value"><span id="excluded-value">—</span><small>days</small></div>
+                    <p>Excluded from leave entries</p>
+                </div>
+            </section>
+
+            <div class="workspace-grid">
+                <div class="ledger-column">
+                    <section class="panel ledger" id="leave-entries" aria-labelledby="entries-heading">
+                        <div class="panel-heading ledger-heading">
+                            <div><h2 id="entries-heading">Your leave entries <span class="count-badge" id="entry-count">0</span></h2><p>Big adventures. Little long weekends. All here.</p></div>
+                            <button type="button" class="button button-primary" id="add-leave-period"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg> Add leave</button>
+                        </div>
+                        <div class="ledger-toolbar">
+                            <div class="search-field"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><label class="sr-only" for="entry-search">Search leave entries by name or date</label><input type="search" id="entry-search" placeholder="Find a leave entry…" autocomplete="off"></div>
+                            <label class="sr-only" for="year-filter">Filter entries by year</label><select id="year-filter" class="compact-select"><option value="all">All years</option></select>
+                            <label class="sr-only" for="entry-sort">Sort leave entries</label><select id="entry-sort" class="compact-select"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A–Z</option></select>
+                        </div>
+                        <div class="bulk-toolbar" id="bulk-toolbar" hidden><span id="selected-count">0 selected</span><button type="button" class="text-button" id="select-all-matching">Select all matching</button><div class="bulk-actions"><button type="button" class="text-button" id="clear-selection">Cancel</button><button type="button" class="text-button danger-text" id="delete-selected"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg> Delete</button></div></div>
+                        <div class="table-container" id="table-container" hidden>
+                            <table class="leave-table">
+                                <caption class="sr-only">Leave entries. Leave days exclude your selected non-working days, holidays and dates already counted by an earlier saved entry.</caption>
+                                <thead><tr><th class="selection-cell"><input type="checkbox" id="select-page" aria-label="Select all entries on this page"></th><th scope="col">LEAVE PERIOD</th><th scope="col" class="type-cell">TYPE</th><th scope="col" class="numeric-cell excluded-cell">EXCLUDED</th><th scope="col" class="numeric-cell">LEAVE DAYS</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+                                <tbody id="leave-periods-list"></tbody>
+                            </table>
+                        </div>
+                        <div class="empty-state" id="empty-state">
+                            <div class="empty-illustration" aria-hidden="true"><span class="empty-sun"></span><svg viewBox="0 0 120 112" fill="none"><rect x="22" y="24" width="75" height="70" rx="10" fill="#fff" stroke="#526d54" stroke-width="1.5"/><path d="M22 44h75M40 17v14m39-14v14" stroke="#526d54" stroke-width="2" stroke-linecap="round"/><path d="M38 59h7m15 0h7m-29 16h7m15 0h7" stroke="#c4cbbd" stroke-width="4" stroke-linecap="round"/><path d="M82 91c-9-19 2-33 24-35 1 23-8 36-24 35Z" fill="#d6e6b5" stroke="#526d54" stroke-width="1.5"/><path d="m76 104 23-35" stroke="#526d54" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+                            <h3 id="empty-heading">A blank page. A world of possibilities.</h3>
+                            <p id="empty-description">Add the days you’ve taken or the breaks you’re planning.<br>We’ll take care of the counting.</p>
+                            <button type="button" class="button button-outline" id="empty-add"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg> Add your first leave</button>
+                            <button type="button" class="button button-outline" id="clear-filters" hidden>Clear filters</button>
+                        </div>
+                        <div class="ledger-pagination" id="ledger-pagination"><span id="entry-range" role="status">No entries yet</span><div class="pagination-controls"><label class="sr-only" for="page-size">Entries per page</label><select id="page-size" class="compact-select"><option value="10">10 per page</option><option value="20">20 per page</option><option value="50">50 per page</option></select><button type="button" class="icon-button" id="previous-page" aria-label="Previous page" disabled><svg class="icon rotate-180" aria-hidden="true"><use href="#i-chevron"/></svg></button><span id="page-indicator">1 / 1</span><button type="button" class="icon-button" id="next-page" aria-label="Next page" disabled><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></button></div></div>
+                        <div class="calculation-note" id="calculation-note" hidden><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg><span id="calculation-note-text"></span></div>
+                        <div class="ledger-hint"><span class="tiny-check"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span><span>One date, one deduction. Overlapping entries are never counted twice.</span></div>
+                    </section>
+
+                    <details class="method-panel">
+                        <summary><span><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg> A little context for the numbers</span><svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></summary>
+                        <div class="method-content"><p><strong>Your balance = leave accrued − leave deducted.</strong> Accrual is your annual entitlement × inclusive calendar days in the calculation period ÷ 365. This keeps the original calculator’s fixed 365-day convention, including in leap years.</p><p>Your non-working weekdays, selected full-day holidays and custom dates reduce <em>leave deducted</em>, not accrual. Only leave inside the calculation period is deducted. Overlaps belong to the first saved entry. Hours use a 7.6-hour working day.</p><p>This is a planning estimate, not a payroll record. It doesn’t include opening balances, unpaid leave, changing entitlements or part-day leave. Check your employer’s records for your official balance.</p></div>
+                    </details>
+                    <div class="workspace-footnote"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg><p>Your plan is saved in this browser, not stored on the server. Export a copy to keep it safe.</p></div>
+                    <button type="button" class="text-button mobile-reset" id="start-fresh-inline">Start a fresh calculation <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg></button>
+                </div>
+
+                <aside class="settings-rail" aria-label="Calculation settings">
+                    <section class="panel settings-panel" id="calculation-settings" aria-labelledby="settings-heading">
+                        <div class="settings-heading"><span class="section-icon"><svg class="icon" aria-hidden="true"><use href="#i-sliders"/></svg></span><h2 id="settings-heading">The essentials</h2></div>
                         <form id="leave-calculator-form">
-                            <div class="row g-3">
-                                <!-- Start Date -->
-                                <div class="col-md-6">
-                                    <label for="start_date" class="form-label fw-semibold">
-                                        <i class="bi bi-calendar-event text-primary me-1"></i>Start Date
-                                    </label>
-                                    <input type="date" class="form-control form-control-lg" id="start_date" name="start_date" required>
-                                    <div class="form-text">Employment start date or leave period start</div>
-                                </div>
-
-                                <!-- End Date -->
-                                <div class="col-md-6">
-                                    <label for="end_date" class="form-label fw-semibold">
-                                        <i class="bi bi-calendar-check text-primary me-1"></i>End Date
-                                    </label>
-                                    <input type="date" class="form-control form-control-lg" id="end_date" name="end_date" required>
-                                    <div class="form-text">Current date or leave period end</div>
-                                </div>
-
-                                <!-- Leave Periods Taken -->
-                                <div class="col-12">
-                                    <label class="form-label fw-semibold">
-                                        <i class="bi bi-calendar-x text-primary me-1"></i>Leave Periods Taken
-                                    </label>
-                                    
-                                    <!-- Leave Periods Container -->
-                                    <div id="leave-periods-container" class="border rounded p-3 bg-light">
-                                        <div class="d-flex justify-content-between align-items-center mb-3">
-                                            <span class="fw-semibold">Leave Periods</span>
-                                            <div>
-                                                <span class="badge bg-primary me-2" id="total-leave-days">Total: 0 days</span>
-                                                <button type="button" class="btn btn-sm btn-outline-primary" id="add-leave-period">
-                                                    <i class="bi bi-plus-circle me-1"></i>Add Period
-                                                </button>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- Default message when no periods -->
-                                        <div id="no-periods-message" class="text-muted text-center py-3">
-                                            <i class="bi bi-info-circle me-2"></i>No leave periods added yet. Click "Add Period" to get started.
-                                        </div>
-                                        
-                                        <!-- Leave periods will be dynamically added here -->
-                                        <div id="leave-periods-list"></div>
-                                    </div>
-                                    <div class="form-text">Add individual leave periods taken (single days or date ranges)</div>
-                                </div>
-
-                                <!-- Annual Entitlement -->
-                                <div class="col-md-12">
-                                    <label for="annual_entitlement" class="form-label fw-semibold">
-                                        <i class="bi bi-calendar-plus text-primary me-1"></i>Annual Entitlement (Days)
-                                    </label>
-                                    <input type="number" class="form-control form-control-lg" id="annual_entitlement" name="annual_entitlement" 
-                                           min="1" step="0.5" placeholder="20" required>
-                                    <div class="form-text">Total annual leave entitlement in days</div>
-                                </div>
-                            </div>
-
-                            <!-- Export/Import Section -->
-                            <div class="col-12">
-                                <hr class="my-4">
-                                <div class="row g-2">
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-semibold">
-                                            <i class="bi bi-download text-primary me-1"></i>Export Data
-                                        </label>
-                                        <button type="button" class="btn btn-outline-secondary btn-sm d-block w-100" id="export-data-btn">
-                                            <i class="bi bi-file-earmark-arrow-down me-2"></i>Export Form Data
-                                        </button>
-                                        <div class="form-text">Save current form data as a JSON file</div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <label class="form-label fw-semibold">
-                                            <i class="bi bi-upload text-primary me-1"></i>Import Data
-                                        </label>
-                                        <input type="file" class="form-control form-control-sm" id="import-file-input" accept=".json" style="display: none;">
-                                        <button type="button" class="btn btn-outline-secondary btn-sm d-block w-100" id="import-data-btn">
-                                            <i class="bi bi-file-earmark-arrow-up me-2"></i>Import Form Data
-                                        </button>
-                                        <div class="form-text">Load form data from a JSON file</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Calculate Button -->
-                            <div class="text-center mt-4">
-                                <button type="submit" class="btn btn-primary btn-lg px-5" id="calculate-btn">
-                                    <span id="btn-text">
-                                        <i class="bi bi-calculator me-2"></i>Calculate Leave Balance
-                                    </span>
-                                    <span id="btn-spinner" class="d-none">
-                                        <span class="spinner-border spinner-border-sm me-2" role="status"></span>
-                                        Calculating...
-                                    </span>
-                                </button>
-                            </div>
+                            <div class="field"><label for="start_date">Calculation starts</label><input type="date" id="start_date" name="start_date" required></div>
+                            <div class="field"><label for="end_date">Calculation ends</label><input type="date" id="end_date" name="end_date" required></div>
+                            <div class="field"><label for="annual_entitlement">Annual entitlement</label><div class="input-with-unit"><input type="number" id="annual_entitlement" name="annual_entitlement" min="0" max="366" step="any" value="20" required><span>days / year</span></div></div>
+                            <button type="submit" class="button button-soft full-width" id="calculate-btn"><svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg><span>Recalculate balance</span></button>
+                            <p class="field-hint centre">Your balance also updates as you make changes.</p>
                         </form>
-                    </div>
-                </div>
+                    </section>
+
+                    <section class="panel settings-panel" id="work-schedule" aria-labelledby="schedule-heading">
+                        <div class="settings-heading"><span class="section-icon"><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg></span><h2 id="schedule-heading">Your working week</h2></div>
+                        <fieldset class="weekday-fieldset"><legend>Select the days you <strong>don’t</strong> work.</legend><div class="weekday-options">
+                            {% for day in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] %}
+                            <label class="weekday-toggle"><input type="checkbox" name="excluded_weekday" value="{{ loop.index0 }}" aria-label="Exclude {{ day }}" {% if loop.index0 in [5, 6] %}checked{% endif %}><span aria-hidden="true">{{ day[:2] }}</span></label>
+                            {% endfor %}
+                        </div></fieldset>
+                        <div class="weekday-presets"><button type="button" class="text-button" id="weekend-preset">Weekends off</button><button type="button" class="text-button muted" id="all-days-preset">Count every day</button></div>
+                        <div class="schedule-detail" id="workweek-description">5 working days per week</div>
+                    </section>
+
+                    <section class="panel settings-panel holiday-panel" id="public-holidays" aria-labelledby="holidays-heading">
+                        <div class="settings-heading"><span class="section-icon sand"><svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg></span><h2 id="holidays-heading">Public holidays</h2><label class="switch"><input type="checkbox" id="exclude-public-holidays" aria-label="Exclude Australian public holidays"><span aria-hidden="true"></span></label></div>
+                        <p class="panel-description">A day off shouldn’t cost you a day of leave.</p>
+                        <div class="field"><label for="holiday-region">Where you’re based for work</label><select id="holiday-region"><option value="">National holidays only</option>{% for code, name in regions.items() %}<option value="{{ code }}">{{ name }}</option>{% endfor %}</select></div>
+                        <p class="holiday-summary" id="holiday-summary">Finding your holiday calendar…</p>
+                        <button type="button" class="button button-outline full-width review-button" id="review-holidays">Review holidays &amp; local dates<svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button>
+                        <p class="field-hint">Full-day holidays only. State calendars include observed dates; local rules can vary.</p>
+                    </section>
+                </aside>
             </div>
+            <footer class="page-footer"><span>Made for a little more time away.</span><span>Annual Leave Calculator <span class="footer-dot">·</span> Australia</span></footer>
         </div>
+    </main>
 
-        <!-- Results Section -->
-        <div class="row justify-content-center mt-4" style="display: none;" data-results-section>
-            <div class="col-lg-8">
-                <div class="card shadow-lg border-0">
-                    <div class="card-header bg-success text-white">
-                        <h4 class="mb-0">
-                            <i class="bi bi-check-circle me-2"></i>Calculation Results
-                        </h4>
-                    </div>
-                    <div class="card-body p-4">
-                        <!-- Main Result -->
-                        <div class="text-center mb-4">
-                            <div class="display-6 fw-bold text-primary" id="main-result"></div>
-                            <p class="text-muted">Current Leave Balance</p>
-                        </div>
+    <dialog class="dialog entry-dialog" id="entry-dialog" aria-labelledby="entry-dialog-title">
+        <div class="dialog-heading"><span class="section-icon"><svg class="icon" aria-hidden="true"><use href="#i-calendar"/></svg></span><button type="button" class="icon-button" data-close-dialog aria-label="Close leave editor"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+        <p class="eyebrow">MAKE SOME SPACE</p><h2 id="entry-dialog-title">Add a little time off.</h2><p class="dialog-subtitle">One day or a whole adventure. It all counts.</p>
+        <form id="entry-form">
+            <div class="field"><label for="entry-label">Give it a name <span class="optional">(optional)</span></label><input type="text" id="entry-label" maxlength="100" placeholder="e.g. A well-earned break" autocomplete="off" autofocus></div>
+            <div class="date-fields"><div class="field"><label for="entry-start">First day</label><input type="date" id="entry-start" required></div><div class="field"><label for="entry-end">Last day</label><input type="date" id="entry-end" required></div></div>
+            <label class="checkbox-label single-day-label"><input type="checkbox" id="entry-single-day"> Just a single day</label>
+            <div class="entry-preview"><span class="preview-icon"><svg class="icon" aria-hidden="true"><use href="#i-leaf"/></svg></span><div><strong id="preview-days">Choose your dates</strong><span id="preview-detail">Your working week and holiday settings apply.</span></div></div>
+            <p class="form-error" id="entry-error" role="alert" hidden></p>
+            <p class="field-hint">Only dates inside your calculation period are deducted. Overlaps are checked when you save.</p>
+            <div class="dialog-footer"><button type="button" class="button button-outline" data-close-dialog>Cancel</button><button type="submit" class="button button-primary" id="save-entry"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span id="save-entry-text">Add entry</span></button></div>
+        </form>
+    </dialog>
 
-                        <!-- Calculation Details -->
-                        <div class="row g-3" id="calculation-details">
-                            <div class="col-sm-6">
-                                <div class="bg-light p-3 rounded">
-                                    <div class="small text-muted">Period Duration</div>
-                                    <div class="fw-semibold" id="period-duration"></div>
-                                </div>
-                            </div>
-                            <div class="col-sm-6">
-                                <div class="bg-light p-3 rounded">
-                                    <div class="small text-muted">Entitled Leave for Period</div>
-                                    <div class="fw-semibold" id="entitled-leave"></div>
-                                </div>
-                            </div>
-                            <div class="col-sm-6">
-                                <div class="bg-light p-3 rounded">
-                                    <div class="small text-muted">Leave Taken</div>
-                                    <div class="fw-semibold" id="leave-taken-display"></div>
-                                </div>
-                            </div>
-                            <div class="col-sm-6">
-                                <div class="bg-light p-3 rounded">
-                                    <div class="small text-muted">Annual Entitlement</div>
-                                    <div class="fw-semibold" id="annual-entitlement-display"></div>
-                                </div>
-                            </div>
-                        </div>
+    <dialog class="dialog holidays-dialog" id="holidays-dialog" aria-labelledby="holidays-dialog-title">
+        <div class="dialog-heading"><span class="section-icon sand"><svg class="icon" aria-hidden="true"><use href="#i-sun"/></svg></span><button type="button" class="icon-button" data-close-dialog aria-label="Close holiday calendar"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+        <p class="eyebrow">YOUR DAYS, YOUR RULES</p><h2 id="holidays-dialog-title">Make the calendar yours.</h2><p class="dialog-subtitle" id="holiday-calendar-title">Australian public holidays</p>
+        <label class="checkbox-label holiday-enable"><input type="checkbox" id="dialog-enable-holidays"> Exclude selected public holidays from leave</label>
+        <div class="holiday-list-toolbar"><span id="holiday-selected-count" role="status">Loading holidays…</span><div><button type="button" class="text-button" id="select-all-holidays">Select all</button><span aria-hidden="true">/</span><button type="button" class="text-button" id="select-no-holidays">Select none</button></div></div>
+        <div class="holiday-list" id="holiday-list" role="group" aria-label="Public holidays in your calculation period" aria-busy="true"></div>
+        <div class="holiday-load-error notice notice-error" id="holiday-load-error" role="alert" hidden><span id="holiday-error-text"></span><button type="button" class="text-button" id="retry-holidays">Retry</button></div>
+        <section class="custom-dates" aria-labelledby="custom-dates-heading"><h3 id="custom-dates-heading">A local day missing?</h3><p>Add a full-day local holiday or another date you don’t work. These apply even when public holidays are switched off.</p><form id="custom-date-form"><label class="sr-only" for="custom-exclusion-date">Additional date to exclude</label><input type="date" id="custom-exclusion-date" required><button type="submit" class="button button-outline"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg> Add date</button></form><div id="custom-dates-list" class="custom-date-chips"></div></section>
+        <details class="holiday-source"><summary>About the holiday data <svg class="icon" aria-hidden="true"><use href="#i-chevron"/></svg></summary><div><p id="holiday-source-description">Generated locally with python-holidays. No API key or live connection needed.</p><p><a href="https://holidays.readthedocs.io/en/latest/auto_gen_docs/australia/" target="_blank" rel="noopener noreferrer">View data source ↗</a><span aria-hidden="true"> · </span><a href="https://www.fairwork.gov.au/employment-conditions/public-holidays" target="_blank" rel="noopener noreferrer">Verify with Fair Work ↗</a></p><ul id="holiday-source-notes"><li>Bank, school and part-day holidays are not excluded.</li><li>National-only dates do not include state-specific substitutes. Choose a state or territory for observed dates.</li><li>Local dates and future declarations may differ. Check your state authority before relying on a balance.</li></ul></div></details>
+        <div class="dialog-footer"><span class="field-hint">Changes update your balance automatically.</span><button type="button" class="button button-primary" data-close-dialog>Done <svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></button></div>
+    </dialog>
 
-                        <!-- Calculate Again Button -->
-                        <div class="text-center mt-4">
-                            <button type="button" class="btn btn-outline-primary" onclick="resetCalculator()">
-                                <i class="bi bi-arrow-clockwise me-2"></i>Calculate Again
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Information Section -->
-        <div class="row justify-content-center mt-5">
-            <div class="col-lg-8">
-                <div class="card border-0 bg-light">
-                    <div class="card-body">
-                        <h6 class="text-primary mb-3"><i class="bi bi-info-circle me-2"></i>How it works</h6>
-                        <ul class="list-unstyled mb-0">
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i>
-                                Enter your employment start and end dates (or leave period)
-                            </li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i>
-                                Specify your annual leave entitlement and days already taken
-                            </li>
-                            <li class="mb-2"><i class="bi bi-check text-success me-2"></i>
-                                Leave entitlement is pro-rated based on the period duration
-                            </li>
-                            <li class="mb-0"><i class="bi bi-check text-success me-2"></i>
-                                Results show in days (≥1 day) or hours (<1 day, using 7.6 hours/day)
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bootstrap 5 JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Custom JavaScript -->
-    <script src="/static/js/app.js"></script>
+    <dialog class="dialog confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title"><h2 id="confirm-title">Are you sure?</h2><p id="confirm-description"></p><form method="dialog" class="dialog-footer"><button class="button button-outline" value="cancel" autofocus>Cancel</button><button class="button button-danger" value="confirm" id="confirm-action">Confirm</button></form></dialog>
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden><span class="tiny-check"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg></span><span id="toast-message"></span><button type="button" class="text-button" id="undo-action" hidden>Undo</button><button type="button" class="icon-button" id="dismiss-toast" aria-label="Dismiss notification"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
 </body>
 </html>
