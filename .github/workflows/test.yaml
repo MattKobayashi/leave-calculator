@@ -4,6 +4,19 @@ env:
   REPO_NAME: mattkobayashi
   IMAGE_NAME: leave-calculator
 jobs:
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-26.04
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Test frontend helpers
+        run: node --test tests/frontend.test.mjs
   image:
     name: Image
     runs-on: ubuntu-26.04
@@ -32,12 +45,12 @@ jobs:
       # Test container image
       - name: Test container image
         run: |
-          set -eux
           CONTAINER_ID="$(uuidgen)"
           docker container run --attach=stdout --attach=stderr --name=$CONTAINER_ID -p 8000:8000/tcp --rm ${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:test &
           sleep 10
           curl -fsSL http://127.0.0.1:8000/health | jq -r '.status' | grep 'healthy'
           curl -fsSL http://127.0.0.1:8000/ | grep -F '<title>Annual Leave Calculator</title>'
+          docker container exec --workdir /app "$CONTAINER_ID" python -m unittest discover -s tests -v
           docker container stop $CONTAINER_ID
       # Remove the test container image
       - name: Remove container image
