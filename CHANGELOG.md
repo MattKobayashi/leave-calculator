@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/MattKobayashi/leave-calculator/compare/v1.0.3...v2.0.0) (2026-11-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* rewrite for v2 ([#522](https://github.com/MattKobayashi/leave-calculator/issues/522))
+
+### Features
+
+* rewrite for v2 ([#522](https://github.com/MattKobayashi/leave-calculator/issues/522)) ([5f0ae7c](https://github.com/MattKobayashi/leave-calculator/commit/5f0ae7cb08bd07a427a1ce58c380271daaf2f73a))
+
 ## [1.0.3](https://github.com/MattKobayashi/leave-calculator/compare/v1.0.2...v1.0.3) (2026-11-09)
 
 
