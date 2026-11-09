@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.3](https://github.com/MattKobayashi/leave-calculator/compare/v1.0.2...v1.0.3) (2026-11-09)
+
+
+### Bug Fixes
+
+* update TemplateResponse call to new format ([#520](https://github.com/MattKobayashi/leave-calculator/issues/520)) ([def0f8d](https://github.com/MattKobayashi/leave-calculator/commit/def0f8dded0f282bced04cff8cd76eecf78ae27a))
+
 ## [1.0.2](https://github.com/MattKobayashi/leave-calculator/compare/v1.0.1...v1.0.2) (2026-11-07)
 
 
