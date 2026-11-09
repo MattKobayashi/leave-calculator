@@ -37,6 +37,7 @@ jobs:
           docker container run --attach=stdout --attach=stderr --name=$CONTAINER_ID -p 8000:8000/tcp --rm ${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:test &
           sleep 10
           curl -fsSL http://127.0.0.1:8000/health | jq -r '.status' | grep 'healthy'
+          curl -fsSL http://127.0.0.1:8000/ | grep -F '<title>Annual Leave Calculator</title>'
           docker container stop $CONTAINER_ID
       # Remove the test container image
       - name: Remove container image
