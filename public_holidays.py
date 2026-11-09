@@ -7,6 +7,8 @@ from typing import Literal
 import holidays
 from holidays.constants import PUBLIC
 
+from errors import InputValidationError
+
 HolidayRegion = Literal["ACT", "NSW", "NT", "QLD", "SA", "TAS", "VIC", "WA"]
 REGIONS = {
     "ACT": "Australian Capital Territory",
@@ -38,9 +40,11 @@ NOTES = [
 def validate_period(start_date: date, end_date: date) -> None:
     """Bound calendar work and provide useful errors for reversed dates."""
     if start_date > end_date:
-        raise ValueError("Start date must be on or before end date.")
+        raise InputValidationError("Start date must be on or before end date.")
     if (end_date - start_date).days + 1 > MAX_PERIOD_DAYS:
-        raise ValueError("Choose a calculation period of no more than 100 years.")
+        raise InputValidationError(
+            "Choose a calculation period of no more than 100 years."
+        )
 
 
 @lru_cache(maxsize=256)
@@ -64,9 +68,9 @@ def get_public_holidays(
     """Return full-day holidays and the provenance needed to review them."""
     validate_period(start_date, end_date)
     if region is not None and region not in REGIONS:
-        raise ValueError("Choose a valid Australian state or territory.")
+        raise InputValidationError("Choose a valid Australian state or territory.")
     if start_date.year < MIN_HOLIDAY_YEAR or end_date.year > MAX_HOLIDAY_YEAR:
-        raise ValueError(
+        raise InputValidationError(
             f"Australian holiday calendars support {MIN_HOLIDAY_YEAR}–{MAX_HOLIDAY_YEAR}. "
             "Change the dates or turn off public-holiday exclusions."
         )

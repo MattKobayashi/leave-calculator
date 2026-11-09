@@ -7,6 +7,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, BeforeValidator, Field, StrictBool
 
+from errors import InputValidationError
 from public_holidays import HolidayRegion, get_public_holidays, validate_period
 
 HOURS_PER_DAY = 7.6
@@ -22,7 +23,7 @@ def parse_date(value: object) -> date:
             return date.fromisoformat(value)
         except ValueError:
             pass
-    raise ValueError("Use a valid date in YYYY-MM-DD format.")
+    raise InputValidationError("Use a valid date in YYYY-MM-DD format.")
 
 
 ISODate = Annotated[date, BeforeValidator(parse_date)]
@@ -71,7 +72,7 @@ def validate_dates(start_date: date | str, end_date: date | str) -> tuple[date, 
 def validate_leave_periods(leave_periods: list[LeavePeriod]) -> None:
     for index, period in enumerate(leave_periods, start=1):
         if period.start_date > period.end_date:
-            raise ValueError(
+            raise InputValidationError(
                 f"Leave entry {index}: start date must be on or before end date."
             )
 
@@ -242,12 +243,12 @@ class LeaveCalculator:
         validate_period(start_date, end_date)
         validate_leave_periods(leave_periods)
         if not math.isfinite(annual_entitlement) or not 0 < annual_entitlement <= 366:
-            raise ValueError(
+            raise InputValidationError(
                 "Annual entitlement must be between 0 and 366 days (exclusive of 0)."
             )
         weekdays = [5, 6] if excluded_weekdays is None else excluded_weekdays
         if any(type(day) is not int or not 0 <= day <= 6 for day in weekdays):
-            raise ValueError(
+            raise InputValidationError(
                 "Excluded weekdays must be numbers from 0 (Monday) to 6 (Sunday)."
             )
 

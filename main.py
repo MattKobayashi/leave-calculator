@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from calculator import ISODate, LeaveCalculationRequest, LeaveCalculator
+from errors import InputValidationError
 from public_holidays import REGIONS, HolidayRegion, get_public_holidays
 
 logging.basicConfig(level=logging.INFO)
@@ -56,9 +57,9 @@ def calculate_leave(request: LeaveCalculationRequest):
             **request.model_dump(exclude={"leave_periods"}),
         )
         return {"success": True, "data": result}
-    except ValueError as exc:
+    except InputValidationError as exc:
         return JSONResponse(
-            status_code=400, content={"success": False, "error": str(exc)}
+            status_code=400, content={"success": False, "error": exc.public_message}
         )
     except Exception:  # Keep internal failures out of the public response.
         logger.exception("Unexpected error calculating leave")
@@ -82,9 +83,9 @@ def public_holidays(
             "success": True,
             "data": get_public_holidays(start_date, end_date, region),
         }
-    except ValueError as exc:
+    except InputValidationError as exc:
         return JSONResponse(
-            status_code=400, content={"success": False, "error": str(exc)}
+            status_code=400, content={"success": False, "error": exc.public_message}
         )
     except Exception:
         logger.exception("Unexpected error loading public holidays")

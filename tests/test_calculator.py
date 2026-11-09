@@ -11,6 +11,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from calculator import LeaveCalculator, LeavePeriod, parse_date
+from errors import InputValidationError
 from main import app
 from public_holidays import REGIONS, get_public_holidays
 
@@ -388,6 +389,15 @@ class ValidationAndWebTests(unittest.TestCase):
                 self.assert_invalid(422, start_date=value)
         self.assertEqual(parse_date("2024-02-29"), date(2024, 2, 29))
 
+    def test_input_validation_errors_preserve_value_error_compatibility(self):
+        with self.assertRaises(ValueError) as raised:
+            parse_date("not a date")
+        self.assertIsInstance(raised.exception, InputValidationError)
+        self.assertEqual(
+            raised.exception.public_message, "Use a valid date in YYYY-MM-DD format."
+        )
+        self.assertEqual(str(raised.exception), raised.exception.public_message)
+
     def test_invalid_entitlements(self):
         for value in (0, -1, 367, "nan", "inf", None):
             with self.subTest(value=value):
@@ -439,33 +449,53 @@ class ValidationAndWebTests(unittest.TestCase):
                 self.assertFalse(response.json()["success"])
 
     def test_unexpected_failure_does_not_leak_internal_details(self):
-        with (
-            patch(
-                "calculator.get_public_holidays",
-                side_effect=RuntimeError("internal detail"),
-            ),
-            self.assertLogs("main", level="ERROR"),
+        for target in (
+            "main.LeaveCalculator.calculate_full_balance",
+            "calculator.get_public_holidays",
         ):
-            response = self.client.post(
-                "/calculate", json={**self.body, "exclude_public_holidays": True}
-            )
-        self.assertEqual(response.status_code, 500)
-        self.assertNotIn("internal detail", response.text)
+            for error_type in (ValueError, RuntimeError):
+                with (
+                    self.subTest(target=target, error_type=error_type),
+                    patch(target, side_effect=error_type("internal detail")),
+                    self.assertLogs("main", level="ERROR") as logs,
+                ):
+                    response = self.client.post(
+                        "/calculate",
+                        json={**self.body, "exclude_public_holidays": True},
+                    )
+                    self.assertEqual(response.status_code, 500)
+                    self.assertEqual(
+                        response.json(),
+                        {
+                            "success": False,
+                            "error": "Unable to calculate your balance. Please try again.",
+                        },
+                    )
+                    self.assertIn("internal detail", "\n".join(logs.output))
+                    self.assertIsNotNone(logs.records[0].exc_info)
 
     def test_holiday_load_failure_is_reported_not_silently_ignored(self):
-        with (
-            patch(
-                "main.get_public_holidays", side_effect=RuntimeError("internal detail")
-            ),
-            self.assertLogs("main", level="ERROR"),
-        ):
-            response = self.client.get(
-                "/holidays",
-                params={"start_date": "2026-01-01", "end_date": "2026-12-31"},
-            )
-        self.assertEqual(response.status_code, 500)
-        self.assertFalse(response.json()["success"])
-        self.assertNotIn("internal detail", response.text)
+        for target in ("main.get_public_holidays", "public_holidays._holiday_year"):
+            for error_type in (ValueError, RuntimeError):
+                with (
+                    self.subTest(target=target, error_type=error_type),
+                    patch(target, side_effect=error_type("internal detail")),
+                    self.assertLogs("main", level="ERROR") as logs,
+                ):
+                    response = self.client.get(
+                        "/holidays",
+                        params={"start_date": "2026-01-01", "end_date": "2026-12-31"},
+                    )
+                    self.assertEqual(response.status_code, 500)
+                    self.assertEqual(
+                        response.json(),
+                        {
+                            "success": False,
+                            "error": "Unable to load public holidays. Please try again.",
+                        },
+                    )
+                    self.assertIn("internal detail", "\n".join(logs.output))
+                    self.assertIsNotNone(logs.records[0].exc_info)
 
     def test_page_assets_and_health_work_outside_the_container_directory(self):
         previous = Path.cwd()

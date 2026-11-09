@@ -161,6 +161,8 @@ The example deducts **4 days**: Saturday/Sunday and Christmas/observed Boxing Da
 
 Additional response fields include the period, annual entitlement, selected holiday dates, source/version and the formatted `result` object. Invalid field formats return HTTP 422; invalid ranges/unsupported holiday coverage return HTTP 400. Errors use `{"success": false, "error": "An explanation"}`.
 
+Unexpected failures return HTTP 500 with a generic message. Internal exception details and tracebacks are logged only on the server.
+
 ### `GET /holidays`
 
 ```text
@@ -196,6 +198,7 @@ Tests cover non-standard weekends, holiday selection and observed dates, every A
 main.py                   FastAPI routes and portable asset paths
 calculator.py             Validated request models and leave calculations
 public_holidays.py        Cached Australian calendars and source metadata
+errors.py                 Explicit, public-safe input validation errors
 templates/index.html      Responsive workspace and accessible native dialogs
 static/css/style.css      Custom design, responsive and reduced-motion styles
 static/js/app.js          Ledger, rules, import/export and local persistence
