@@ -195,7 +195,7 @@ def validate_leave_periods(leave_periods: List[LeavePeriod]) -> None:
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     """Serve the main calculator page"""
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request=request, name="index.html")
 
 
 @app.post("/calculate")
