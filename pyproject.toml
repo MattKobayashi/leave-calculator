@@ -5,7 +5,7 @@ description = "An annual leave planner with Australian public holidays and flexi
 readme = "README.md"
 requires-python = ">=3.15, <3.16"
 dependencies = [
-    "fastapi[standard]==0.162.5",
+    "fastapi[standard]==0.162.7",
     "holidays==0.108",
     "python-multipart==0.0.33",
 ]
