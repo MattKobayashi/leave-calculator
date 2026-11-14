@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.3](https://github.com/MattKobayashi/leave-calculator/compare/v2.0.2...v2.0.3) (2026-11-14)
+
+
+### Bug Fixes
+
+* **deps:** update dependency dnspython to v2.9.2 [security] ([#533](https://github.com/MattKobayashi/leave-calculator/issues/533)) ([0808306](https://github.com/MattKobayashi/leave-calculator/commit/0808306955194698d5593c47bb2849e7d875d132))
+* **deps:** update dependency fastapi to v0.162.7 ([#531](https://github.com/MattKobayashi/leave-calculator/issues/531)) ([6e5cfa4](https://github.com/MattKobayashi/leave-calculator/commit/6e5cfa4ea917a120a70300d918c36651c22748c1))
+
 ## [2.0.2](https://github.com/MattKobayashi/leave-calculator/compare/v2.0.1...v2.0.2) (2026-11-12)
 
 
