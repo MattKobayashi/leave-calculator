@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.4](https://github.com/MattKobayashi/leave-calculator/compare/v2.0.3...v2.0.4) (2026-11-15)
+
+
+### Bug Fixes
+
+* **deps:** update dependency fastapi to v0.163.0 ([#535](https://github.com/MattKobayashi/leave-calculator/issues/535)) ([756e8fc](https://github.com/MattKobayashi/leave-calculator/commit/756e8fc761aaa79dae437f085bf7766bd317e433))
+
 ## [2.0.3](https://github.com/MattKobayashi/leave-calculator/compare/v2.0.2...v2.0.3) (2026-11-14)
 
 
