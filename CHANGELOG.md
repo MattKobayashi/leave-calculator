@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.6](https://github.com/MattKobayashi/leave-calculator/compare/v2.0.5...v2.0.6) (2026-11-16)
+
+
+### Bug Fixes
+
+* **deps:** update dependency python-multipart to v0.0.34 ([#541](https://github.com/MattKobayashi/leave-calculator/issues/541)) ([e2a05b1](https://github.com/MattKobayashi/leave-calculator/commit/e2a05b1514715a467f7efe272a710c7e08142c7b))
+
 ## [2.0.5](https://github.com/MattKobayashi/leave-calculator/compare/v2.0.4...v2.0.5) (2026-11-15)
 
 
