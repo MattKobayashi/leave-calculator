@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.7](https://github.com/MattKobayashi/leave-calculator/compare/v2.0.6...v2.0.7) (2026-11-17)
+
+
+### Bug Fixes
+
+* **deps:** update dependency holidays to v0.109 ([#545](https://github.com/MattKobayashi/leave-calculator/issues/545)) ([0e93213](https://github.com/MattKobayashi/leave-calculator/commit/0e93213266785d07099323eb9c4d82107404a3cd))
+
 ## [2.0.6](https://github.com/MattKobayashi/leave-calculator/compare/v2.0.5...v2.0.6) (2026-11-16)
 
 
